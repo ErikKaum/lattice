@@ -2,7 +2,7 @@
 
 <img src="https://cdn-uploads.huggingface.co/production/uploads/63148c4db031f7b1c7bc36f9/O83e3asl0ZPKpudwgkZjt.png" alt="lattice banner" />
 
----
+</div>
 
 # Lattice
 
