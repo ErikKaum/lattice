@@ -14,7 +14,7 @@ The project includes the large-scale preprocessing and training pipeline, a
 post-training slicer/quantizer, and a pure-Rust inference runtime.
 
 - [Model on Hugging Face](https://huggingface.co/erikkaum/lattice-retrieval)
-- [Engineering write-up](blog_revised.md)
+- [Engineering write-up](https://huggingface.co/blog/erikkaum/lattice-blog/)
 - [Evaluation methodology and full tables](evals.md)
 
 ## Results
