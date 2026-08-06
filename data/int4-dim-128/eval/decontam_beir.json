@@ -1,0 +1,180 @@
+{
+  "per_task": {
+    "arguana": {
+      "n_corpus": 8546,
+      "n_qrels": 1373,
+      "n_queries_scored": 1373,
+      "ndcg@10": {
+        "128": 0.3227206653241225
+      },
+      "elapsed_s": 2.803983449935913
+    },
+    "climate-fever": {
+      "n_corpus": 5117453,
+      "n_qrels": 2700,
+      "n_queries_scored": 969,
+      "ndcg@10": {
+        "128": 0.18408999251216313
+      },
+      "elapsed_s": 432.2996208667755
+    },
+    "dbpedia": {
+      "n_corpus": 1678309,
+      "n_qrels": 4325,
+      "n_queries_scored": 264,
+      "ndcg@10": {
+        "128": 0.26320069174488936
+      },
+      "elapsed_s": 112.56059885025024
+    },
+    "fever": {
+      "n_corpus": 5117452,
+      "n_qrels": 7806,
+      "n_queries_scored": 6571,
+      "ndcg@10": {
+        "128": 0.40023342364393444
+      },
+      "elapsed_s": 454.64825677871704
+    },
+    "fiqa": {
+      "n_corpus": 47617,
+      "n_qrels": 138,
+      "n_queries_scored": 61,
+      "ndcg@10": {
+        "128": 0.25151007108587803
+      },
+      "elapsed_s": 5.959423303604126
+    },
+    "hotpotqa": {
+      "n_corpus": 2314813,
+      "n_qrels": 2296,
+      "n_queries_scored": 2092,
+      "ndcg@10": {
+        "128": 0.43132973946851294
+      },
+      "elapsed_s": 148.39235854148865
+    },
+    "msmarco": {
+      "n_corpus": 4036967,
+      "n_qrels": 1676,
+      "n_queries_scored": 41,
+      "ndcg@10": {
+        "128": 0.4533574706447386
+      },
+      "elapsed_s": 287.48861265182495
+    },
+    "nfcorpus": {
+      "n_corpus": 912,
+      "n_qrels": 1471,
+      "n_queries_scored": 169,
+      "ndcg@10": {
+        "128": 0.1915816097361379
+      },
+      "elapsed_s": 2.102687120437622
+    },
+    "nq": {
+      "n_corpus": 305674,
+      "n_qrels": 26,
+      "n_queries_scored": 26,
+      "ndcg@10": {
+        "128": 0.6406954747416596
+      },
+      "elapsed_s": 16.419212818145752
+    },
+    "quora": {
+      "n_corpus": 413157,
+      "n_qrels": 4516,
+      "n_queries_scored": 2788,
+      "ndcg@10": {
+        "128": 0.8277648075220889
+      },
+      "elapsed_s": 21.899033308029175
+    },
+    "scidocs": {
+      "n_corpus": 5833,
+      "n_qrels": 206,
+      "n_queries_scored": 130,
+      "ndcg@10": {
+        "128": 0.15845426263479828
+      },
+      "elapsed_s": 2.960387706756592
+    },
+    "scifact": {
+      "n_corpus": 858,
+      "n_qrels": 43,
+      "n_queries_scored": 41,
+      "ndcg@10": {
+        "128": 0.7833577810383159
+      },
+      "elapsed_s": 1.8889656066894531
+    },
+    "trec-covid": {
+      "n_corpus": 99522,
+      "n_qrels": 17448,
+      "n_queries_scored": 50,
+      "ndcg@10": {
+        "128": 0.5999381994306249
+      },
+      "elapsed_s": 13.965188026428223
+    },
+    "webis-touche2020": {
+      "n_corpus": 378223,
+      "n_qrels": 524,
+      "n_queries_scored": 30,
+      "ndcg@10": {
+        "128": 0.25090276820838003
+      },
+      "elapsed_s": 69.63581418991089
+    }
+  },
+  "aggregates": {
+    "12_mean_ndcg@10": {
+      "128": 0.4312344617983455
+    },
+    "14_mean_ndcg@10": {
+      "128": 0.41136692555258897
+    }
+  },
+  "config": {
+    "tasks": [
+      "arguana",
+      "climate-fever",
+      "dbpedia",
+      "fever",
+      "fiqa",
+      "hotpotqa",
+      "msmarco",
+      "nfcorpus",
+      "nq",
+      "quora",
+      "scidocs",
+      "scifact",
+      "trec-covid",
+      "webis-touche2020"
+    ],
+    "matryoshka_dims": [
+      128
+    ],
+    "headline_exclude": [
+      "climate-fever",
+      "fever"
+    ],
+    "completed_tasks": [
+      "arguana",
+      "climate-fever",
+      "dbpedia",
+      "fever",
+      "fiqa",
+      "hotpotqa",
+      "msmarco",
+      "nfcorpus",
+      "nq",
+      "quora",
+      "scidocs",
+      "scifact",
+      "trec-covid",
+      "webis-touche2020"
+    ],
+    "is_complete": true
+  }
+}

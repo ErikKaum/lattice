@@ -1,0 +1,28 @@
+[package]
+name = "pipeline"
+version = "0.1.0"
+edition = "2024"
+description = "Pre-tokenization pipeline for lattice-retrieval training data"
+readme = "README.md"
+repository = "https://github.com/ErikKaum/lattice"
+publish = false
+
+[dependencies]
+anyhow = "1"
+arrow = "53"
+bytemuck = "1"
+bytes = "1"
+clap = { version = "4", features = ["derive"] }
+futures = "0.3"
+parquet = { version = "53", features = ["async", "arrow"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokenizers = "0.20"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

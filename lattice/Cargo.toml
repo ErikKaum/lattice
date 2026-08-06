@@ -1,0 +1,40 @@
+[package]
+name = "lattice"
+version = "0.1.0"
+edition = "2024"
+description = "Pure-Rust inference for sliced and quantized lattice-retrieval embeddings"
+readme = "README.md"
+repository = "https://github.com/ErikKaum/lattice"
+publish = false
+
+[lib]
+# `cdylib` for the Python extension (via maturin), `rlib` for the bins and
+# integration tests. Both come out of one build.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+anyhow = "1.0.102"
+memmap2 = "0.9.10"
+mimalloc = { version = "0.1.52", default-features = false }
+num_cpus = "1.17.0"
+rayon = "1.12.0"
+safetensors = "0.7.0"
+tokenizers = { version = "0.23.1", default-features = false, features = ["onig"] }
+bytemuck = "1"
+wide = "1.4.0"
+# Python bindings — feature-gated so plain `cargo build` doesn't pull
+# pyo3 + numpy when you're just building the bench bin.
+pyo3 = { version = "0.22", features = ["extension-module"], optional = true }
+numpy = { version = "0.22", optional = true }
+
+[features]
+default = []
+# Enable the Python bindings module. Built by `maturin build --features python`.
+python = ["dep:pyo3", "dep:numpy"]
+
+# Release builds keep full debug info so `samply` / flamegraphs resolve to
+# real function names. Symbols add binary size but no runtime cost; we care
+# about being able to read profiles more than about a slim binary in this
+# milestone.
+[profile.release]
+debug = true

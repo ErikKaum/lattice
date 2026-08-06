@@ -1,0 +1,25 @@
+[build-system]
+requires = ["maturin>=1.7,<2"]
+build-backend = "maturin"
+
+[project]
+name = "lattice"
+version = "0.1.0"
+description = "Pure-Rust inference for sliced + quantized lattice-retrieval static embeddings."
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+  "Programming Language :: Rust",
+  "Programming Language :: Python :: 3",
+]
+
+[project.urls]
+Repository = "https://github.com/ErikKaum/lattice"
+Documentation = "https://github.com/ErikKaum/lattice/tree/main/lattice"
+
+[tool.maturin]
+features = ["python"]
+# Build only the Python extension; skip the bench/embed bins (they don't
+# link in this configuration anyway because we depend on optional pyo3).
+bindings = "pyo3"
+module-name = "lattice"

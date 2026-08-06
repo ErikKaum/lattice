@@ -1,0 +1,25 @@
+[project]
+name = "slicer"
+version = "0.1.0"
+description = "Slice + quantize the lattice-retrieval static embedding model into a deployment artifact."
+readme = "README.md"
+authors = [
+    { name = "erikkaum", email = "erik.kaum@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "huggingface-hub>=1.18.0",
+    "numpy>=2.4.6",
+    "safetensors>=0.7.0",
+]
+
+[project.urls]
+Repository = "https://github.com/ErikKaum/lattice"
+Documentation = "https://github.com/ErikKaum/lattice/tree/main/slicer"
+
+[project.scripts]
+slicer = "slicer.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.9.9,<0.10.0"]
+build-backend = "uv_build"

@@ -1,0 +1,45 @@
+[project]
+name = "trainer"
+version = "0.1.0"
+description = "Train the static-embedding model from lattice's pre-tokenized cache."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.3",
+    "numpy>=1.26",
+    "tqdm>=4.66",
+    "sentence-transformers>=3.0",  # eval (NanoBEIREvaluator); also for the
+                                   # final SentenceTransformer save format
+                                   # consumed by downstream serving
+    "tokenizers>=0.20",            # for inspection / parity tests; training
+                                   # itself never re-tokenizes
+    "datasets>=2.20",              # NanoBEIR evaluator pulls the small
+                                   # `zeta-alpha-ai/NanoBEIR_*` datasets
+    "safetensors>=0.4",            # checkpoint format (matches the reference
+                                   # `static-retrieval-mrl-en-v1` layout on
+                                   # HF Hub; safe to load from untrusted
+                                   # sources unlike torch.save's pickle)
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+trainer = "trainer.cli:main"
+
+[project.urls]
+Repository = "https://github.com/ErikKaum/lattice"
+Documentation = "https://github.com/ErikKaum/lattice/tree/main/trainer"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["trainer"]
+
+[tool.ruff]
+line-length = 100

@@ -1,0 +1,44 @@
+# Operating-system and editor files
+.DS_Store
+**/.DS_Store
+.claude/
+.idea/
+.vscode/
+*.swp
+
+# Python
+**/__pycache__/
+*.py[cod]
+**/.pytest_cache/
+**/.ruff_cache/
+**/.venv/
+**/.venv-*/
+**/build/
+**/dist/
+**/*.egg-info/
+
+# Rust
+**/target/
+
+# Training caches and runs stay in local/S3/HF storage, never Git
+/pipeline/cache/
+/trainer/cache/
+/trainer/runs/
+/hf_model/
+
+# Generated deployment artifacts and corpora
+*.safetensors
+/data/**/tokenizer.json
+/data/wiki/
+/data/**/*.bin
+/data/**/*.npy
+/data/**/*.npz
+
+# Local planning logs; the maintained public docs are README.md and evals.md
+/blog.md
+/blog_revised.md
+/eval_plan.md
+/plan.md
+/plan2.md
+/plan_inference.md
+/progress.md
