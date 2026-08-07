@@ -55,47 +55,58 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     p_slice.add_argument(
-        "--dim", type=int, required=True, choices=SUPPORTED_DIMS,
+        "--dim",
+        type=int,
+        required=True,
+        choices=SUPPORTED_DIMS,
         help="Output matryoshka dim. Must be one of the trained dims.",
     )
     p_slice.add_argument(
-        "--quant", required=True, choices=SUPPORTED_VARIANTS,
+        "--quant",
+        required=True,
+        choices=SUPPORTED_VARIANTS,
         help="Quantization recipe. `fp32` means slice but don't quantize.",
     )
     p_slice.add_argument(
-        "--output-dir", type=Path, required=True,
+        "--output-dir",
+        type=Path,
+        required=True,
         help="Where to write `model.safetensors` (and `tokenizer.json`).",
     )
     p_slice.add_argument(
-        "--source", type=Path, default=None,
+        "--source",
+        type=Path,
+        default=None,
         help="Path to a local `.safetensors` file. If omitted, the fp32 "
-             "weights are downloaded from HF Hub. When set, the tokenizer "
-             "is expected to live next to the file as `tokenizer.json` "
-             "(unless --omit-tokenizer).",
+        "weights are downloaded from HF Hub. When set, the tokenizer "
+        "is expected to live next to the file as `tokenizer.json` "
+        "(unless --omit-tokenizer).",
     )
     p_slice.add_argument(
-        "--source-repo", default=DEFAULT_REPO,
-        help=f"HF Hub repo id (default: {DEFAULT_REPO}). Ignored if "
-             "--source is set.",
+        "--source-repo",
+        default=DEFAULT_REPO,
+        help=f"HF Hub repo id (default: {DEFAULT_REPO}). Ignored if --source is set.",
     )
     p_slice.add_argument(
-        "--source-revision", default="main",
+        "--source-revision",
+        default="main",
         help="HF Hub revision (default: main).",
     )
     p_slice.add_argument(
-        "--omit-tokenizer", action="store_true",
+        "--omit-tokenizer",
+        action="store_true",
         help="Skip copying `tokenizer.json` into the output directory.",
     )
     p_slice.add_argument(
-        "--no-verify", action="store_true",
+        "--no-verify",
+        action="store_true",
         help="Skip the round-trip sanity check (load, dequant, compare).",
     )
 
     # ---- inspect ---------------------------------------------------------
     p_inspect = sub.add_parser(
         "inspect",
-        help="report variant + dim of a `.safetensors` file; verify it's "
-             "a valid lattice artifact",
+        help="report variant + dim of a `.safetensors` file; verify it's a valid lattice artifact",
         description=(
             "Inspect a `.safetensors` file: print its tensor shapes, dtypes, "
             "and metadata, then verify it's a valid lattice deployment "
@@ -104,9 +115,10 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     p_inspect.add_argument(
-        "path", type=Path,
+        "path",
+        type=Path,
         help="Path to a `.safetensors` file produced by `slicer slice` "
-             "(or any file — we'll tell you if it isn't one).",
+        "(or any file — we'll tell you if it isn't one).",
     )
 
     return ap
@@ -144,13 +156,15 @@ def _do_slice(args: argparse.Namespace) -> None:
         W = next(iter(weights_dict.values()))
     else:
         raise SystemExit(
-            f"could not pick a weight tensor from {source.weights}; "
-            f"keys: {list(weights_dict)}"
+            f"could not pick a weight tensor from {source.weights}; keys: {list(weights_dict)}"
         )
     print(f"source weight: shape={W.shape} dtype={W.dtype}", flush=True)
 
     qz = quantize_and_slice(
-        weight=W, variant=args.quant, dim=args.dim, source_label=source.label,
+        weight=W,
+        variant=args.quant,
+        dim=args.dim,
+        source_label=source.label,
     )
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -182,7 +196,8 @@ def _verify_roundtrip(out_path: Path, W_ref: np.ndarray, variant: str) -> None:
 
     with safe_open(str(out_path), framework="np") as f:
         meta = f.metadata() or {}
-        tensors = {k: f.get_tensor(k) for k in f.keys()}
+        tensor_names = list(f.keys())
+        tensors = {key: f.get_tensor(key) for key in tensor_names}
 
     qz = Quantized(
         q=tensors["weight"],
@@ -200,7 +215,9 @@ def _verify_roundtrip(out_path: Path, W_ref: np.ndarray, variant: str) -> None:
     )
     if bits == 32:
         if diff.max() > 1e-6:
-            print(f"  WARNING: fp32 round-trip not exact ({diff.max()})", file=sys.stderr)
+            print(
+                f"  WARNING: fp32 round-trip not exact ({diff.max()})", file=sys.stderr
+            )
     else:
         # Symmetric int_n round-trip error is bounded by scale/2 per element,
         # which for the loudest row/dim equals max_abs_in_W / (2*qmax).

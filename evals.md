@@ -1,19 +1,13 @@
 # Evaluation notes
 
-This document records the tokenizer-corrected release evaluation for
-`lattice-retrieval`. Earlier checkpoints trained with the wrong special-token
-policy are intentionally excluded from the release tables.
-
-## Which evaluation surfaces mean what
-
-### Stage-1 NanoBEIR
+## Stage-1 NanoBEIR
 
 NanoBEIR is the fast scaling surface used to compare the `xs`, `small`,
 `medium`, and `full` Stage-1 runs and to inspect the Matryoshka curve. The three
 Stage-1 subsets with direct task overlap—`beir_dbpedia`, `msmarco`, and
 `quora`—were excluded before training.
 
-### Stage-2 held-out evaluation
+## Stage-2 held-out evaluation
 
 The Stage-2 pipeline creates a seed-fixed, query-level held-out split from its
 seven fine-tuning sources. Each source contributes at most 100 held-out
@@ -23,7 +17,7 @@ the unweighted mean across sources.
 This surface answers whether hard-negative fine-tuning improves the domains it
 was trained on. It is not a broad generalization benchmark.
 
-### Decontaminated BEIR
+## Decontaminated BEIR
 
 Stage 2 uses FiQA, NQ, HotpotQA, MS MARCO, FEVER, SQuAD v2, and TriviaQA, so
 its absolute score on standard BEIR or NanoBEIR is contaminated. The main

@@ -22,16 +22,19 @@ post-training slicer/quantizer, and a pure-Rust inference runtime.
 The final model was:
 
 - trained on roughly **660M curated query/document pairs**.
-- after a fine-tune, reached **0.4749 NDCG@10** on the 12-task decontaminated
-  BEIR mean, compared with 0.4334 for `static-retrieval-mrl-en-v1`.
-- An int4 quantized model with 512 dimensions is only a 7.94 MB artifact and
-  scores 0.4697 NDCG@10.
-- The Rust runtime embedds **6.4M English Wikipedia articles in 7 minutes 26
-  seconds** on an 8-core Apple M2 MacBook Air.
+- fine-tuned with hard negatives to reach **0.4749 NDCG@10** on the 12-task
+  decontaminated BEIR mean, compared with 0.4334 for
+  `static-retrieval-mrl-en-v1`.
+- quantized to a 7.94 MB int4 weight file at 512 dimensions while still
+  scoring 0.4697 NDCG@10.
+- served by a Rust runtime that embeds **6.4M English Wikipedia articles in 7
+  minutes 26 seconds** on an 8-core Apple M2 MacBook Air.
 
 ## Quickstart
 
 ### Use the fp32 model with Sentence Transformers
+
+Requires Sentence Transformers 5.4 or newer.
 
 ```python
 from sentence_transformers import SentenceTransformer
@@ -46,8 +49,7 @@ print(embeddings.shape)  # (2, 1024)
 
 ### Generate a quantized artifact and run it in Rust
 
-Requirements: Python 3.12+, [`uv`](https://docs.astral.sh/uv/), and a recent
-Rust toolchain.
+Requirements: Python 3.12+, [`uv`](https://docs.astral.sh/uv/), and Rust 1.89+.
 
 ```bash
 git clone https://github.com/ErikKaum/lattice

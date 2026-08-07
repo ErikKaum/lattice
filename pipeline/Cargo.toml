@@ -5,6 +5,8 @@ edition = "2024"
 description = "Pre-tokenization pipeline for lattice-retrieval training data"
 readme = "README.md"
 repository = "https://github.com/ErikKaum/lattice"
+license = "MIT"
+rust-version = "1.88"
 publish = false
 
 [dependencies]

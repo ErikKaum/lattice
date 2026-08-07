@@ -12,7 +12,7 @@ Special tokens are not added to match Sentence Transformers.
 
 ## Requirements
 
-- A recent stable Rust toolchain.
+- Rust 1.88 or newer.
 - Network access to Hugging Face while planning and tokenizing.
 - Enough storage for the requested tier. The full tokenized cache is hundreds
   of gigabytes.

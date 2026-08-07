@@ -41,20 +41,25 @@ from typing import Literal
 
 import numpy as np
 
-
 SUPPORTED_DIMS: tuple[int, ...] = (32, 64, 128, 256, 512, 1024)
 
 Variant = Literal[
     "fp32",
-    "int8_row", "int8_dim",
-    "int4_row", "int4_dim",
-    "int2_row", "int2_dim",
+    "int8_row",
+    "int8_dim",
+    "int4_row",
+    "int4_dim",
+    "int2_row",
+    "int2_dim",
 ]
 SUPPORTED_VARIANTS: tuple[Variant, ...] = (
     "fp32",
-    "int8_row", "int8_dim",
-    "int4_row", "int4_dim",
-    "int2_row", "int2_dim",
+    "int8_row",
+    "int8_dim",
+    "int4_row",
+    "int4_dim",
+    "int2_row",
+    "int2_dim",
 )
 
 
@@ -62,9 +67,10 @@ SUPPORTED_VARIANTS: tuple[Variant, ...] = (
 class Quantized:
     """Result of a quantize-and-slice. `q` and `scale` are written to the
     safetensors output; the metadata dict joins the safetensors header."""
-    q: np.ndarray            # quantized weight (int8 / packed uint8 / fp32)
-    scale: np.ndarray | None # f32 per-row or per-dim scales (None for fp32)
-    metadata: dict[str, str] # safetensors header metadata
+
+    q: np.ndarray  # quantized weight (int8 / packed uint8 / fp32)
+    scale: np.ndarray | None  # f32 per-row or per-dim scales (None for fp32)
+    metadata: dict[str, str]  # safetensors header metadata
 
 
 def quantize_and_slice(
@@ -90,15 +96,26 @@ def quantize_and_slice(
         return Quantized(
             q=sliced.copy(),
             scale=None,
-            metadata=_metadata(variant, bits=32, axis="none", dim=dim,
-                               vocab=weight.shape[0], source=source_label),
+            metadata=_metadata(
+                variant,
+                bits=32,
+                axis="none",
+                dim=dim,
+                vocab=weight.shape[0],
+                source=source_label,
+            ),
         )
 
-    bits = {"int8_row": 8, "int8_dim": 8,
-            "int4_row": 4, "int4_dim": 4,
-            "int2_row": 2, "int2_dim": 2}[variant]
+    bits = {
+        "int8_row": 8,
+        "int8_dim": 8,
+        "int4_row": 4,
+        "int4_dim": 4,
+        "int2_row": 2,
+        "int2_dim": 2,
+    }[variant]
     axis = "row" if variant.endswith("_row") else "dim"
-    qmax = (1 << (bits - 1)) - 1   # 127, 7, 1
+    qmax = (1 << (bits - 1)) - 1  # 127, 7, 1
     q_signed, scale = _symmetric_quantize(sliced, axis, qmax)
 
     if bits == 8:
@@ -110,8 +127,14 @@ def quantize_and_slice(
     else:
         raise AssertionError("unreachable")
 
-    metadata = _metadata(variant, bits=bits, axis=axis, dim=dim,
-                         vocab=weight.shape[0], source=source_label)
+    metadata = _metadata(
+        variant,
+        bits=bits,
+        axis=axis,
+        dim=dim,
+        vocab=weight.shape[0],
+        source=source_label,
+    )
     if bits < 8:
         metadata["pack_bias"] = str(qmax)
         metadata["pack_layout"] = "low_to_high"
@@ -121,7 +144,9 @@ def quantize_and_slice(
 
 
 def _symmetric_quantize(
-    W: np.ndarray, axis: str, qmax: int,
+    W: np.ndarray,
+    axis: str,
+    qmax: int,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Symmetric quantize. Returns (signed-int q, fp32 scale).
     `axis="row"` → scale shape (vocab,).  `axis="dim"` → scale shape (dim,)."""
@@ -135,7 +160,7 @@ def _symmetric_quantize(
 def _pack_int4(q: np.ndarray, qmax: int) -> np.ndarray:
     """Pack int4 signed values (q in [-qmax, +qmax]) into uint8 — two
     nibbles per byte, low-then-high. Requires last-dim even."""
-    vocab, dim = q.shape
+    _vocab, dim = q.shape
     if dim % 2 != 0:
         raise ValueError(f"int4 packing requires even dim, got {dim}")
     biased = (q + qmax).astype(np.uint8)  # in [0, 2*qmax]
@@ -147,7 +172,7 @@ def _pack_int4(q: np.ndarray, qmax: int) -> np.ndarray:
 def _pack_int2(q: np.ndarray, qmax: int) -> np.ndarray:
     """Pack int2 signed values into uint8 — four 2-bit fields per byte,
     low-to-high. Requires last-dim divisible by 4."""
-    vocab, dim = q.shape
+    _vocab, dim = q.shape
     if dim % 4 != 0:
         raise ValueError(f"int2 packing requires dim divisible by 4, got {dim}")
     biased = (q + qmax).astype(np.uint8)  # in {0, 1, 2}
@@ -159,7 +184,12 @@ def _pack_int2(q: np.ndarray, qmax: int) -> np.ndarray:
 
 
 def _metadata(
-    variant: str, bits: int, axis: str, dim: int, vocab: int, source: str,
+    variant: str,
+    bits: int,
+    axis: str,
+    dim: int,
+    vocab: int,
+    source: str,
 ) -> dict[str, str]:
     return {
         "lattice_variant": variant,

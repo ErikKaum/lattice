@@ -20,23 +20,19 @@ def test_export_hf_writes_loadable_root_layout(tmp_path: Path) -> None:
         metadata={"vocab_size": "3", "embedding_dim": "4"},
     )
 
-    tokenizer = Tokenizer(
-        WordLevel({"[UNK]": 0, "hello": 1, "world": 2}, unk_token="[UNK]")
-    )
+    tokenizer = Tokenizer(WordLevel({"[UNK]": 0, "hello": 1, "world": 2}, unk_token="[UNK]"))
     tokenizer.pre_tokenizer = Whitespace()
     tokenizer_path = tmp_path / "tokenizer.json"
     tokenizer.save(str(tokenizer_path))
 
-    model_card = tmp_path / "MODEL_CARD.md"
-    model_card.write_text("# test model\n")
     out_dir = tmp_path / "hub-model"
 
-    export_hf_model(checkpoint, tokenizer_path, out_dir, model_card)
+    export_hf_model(checkpoint, tokenizer_path, out_dir)
 
     assert (out_dir / "model.safetensors").is_file()
     assert (out_dir / "tokenizer.json").is_file()
     assert (out_dir / "modules.json").is_file()
-    assert (out_dir / "README.md").read_text() == "# test model\n"
+    assert not (out_dir / "README.md").exists()
 
     model = SentenceTransformer(str(out_dir))
     embeddings = model.encode(["hello world"], normalize_embeddings=True)

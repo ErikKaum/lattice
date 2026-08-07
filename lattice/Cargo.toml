@@ -5,6 +5,8 @@ edition = "2024"
 description = "Pure-Rust inference for sliced and quantized lattice-retrieval embeddings"
 readme = "README.md"
 repository = "https://github.com/ErikKaum/lattice"
+license = "MIT"
+rust-version = "1.89"
 publish = false
 
 [lib]

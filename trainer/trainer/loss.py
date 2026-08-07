@@ -6,7 +6,7 @@ Both written from scratch — they are a few lines each and match the
 sentence-transformers reference behavior exactly (verified against the
 formula in `sentence-transformers/sentence_transformers/losses/`).
 
-Per `plan.md`:
+Training defaults:
 - `matryoshka_dims = [1024, 512, 256, 128, 64, 32]` with equal weights
 - `scale = 20.0` (sentence-transformers default)
 """
@@ -14,9 +14,8 @@ Per `plan.md`:
 from __future__ import annotations
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-
+from torch import nn
 
 DEFAULT_SCALE = 20.0
 DEFAULT_MATRYOSHKA_DIMS: tuple[int, ...] = (1024, 512, 256, 128, 64, 32)
@@ -35,8 +34,8 @@ class MultipleNegativesRankingLoss(nn.Module):
 
     Loss = CE(scale * cos_sim(A, P), labels=[0, 1, ..., B-1])
 
-    Larger batches → richer negatives → stronger gradient. The whole point of
-    pushing batch size as high as memory allows in `plan.md`.
+    Larger batches → richer negatives → stronger gradient, which motivates
+    pushing batch size as high as memory allows.
     """
 
     def __init__(self, scale: float = DEFAULT_SCALE) -> None:
@@ -78,9 +77,9 @@ class MatryoshkaLoss(nn.Module):
     by an implicit L2 re-normalization (done inside `cos_sim_matrix` via the
     base loss).
 
-    `plan.md` says equal weights; this is what `MatryoshkaLoss` defaults to
-    in sentence-transformers if `matryoshka_weights` isn't passed (it sets
-    every weight to 1.0 and then averages).
+    Equal weights match the `MatryoshkaLoss` default in sentence-transformers
+    when `matryoshka_weights` is not passed: every weight is 1.0 before the
+    losses are averaged.
     """
 
     def __init__(
@@ -97,9 +96,7 @@ class MatryoshkaLoss(nn.Module):
         if weights is None:
             weights = tuple(1.0 for _ in self.dims)
         if len(weights) != len(self.dims):
-            raise ValueError(
-                f"len(weights)={len(weights)} != len(dims)={len(self.dims)}"
-            )
+            raise ValueError(f"len(weights)={len(weights)} != len(dims)={len(self.dims)}")
         self.register_buffer(
             "weights",
             torch.tensor(weights, dtype=torch.float32),
@@ -114,8 +111,7 @@ class MatryoshkaLoss(nn.Module):
         full_dim = anchors.size(-1)
         if full_dim < self.dims[0]:
             raise ValueError(
-                f"embedding dim {full_dim} smaller than max matryoshka dim "
-                f"{self.dims[0]}"
+                f"embedding dim {full_dim} smaller than max matryoshka dim {self.dims[0]}"
             )
         total = anchors.new_zeros(())
         for w, d in zip(self.weights.tolist(), self.dims):

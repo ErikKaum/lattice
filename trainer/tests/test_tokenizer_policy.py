@@ -19,16 +19,12 @@ class _RecordingTokenizer:
     def __init__(self) -> None:
         self.policies: list[bool] = []
 
-    def encode_batch_fast(
-        self, texts: list[str], add_special_tokens: bool
-    ) -> list[_Encoding]:
+    def encode_batch_fast(self, texts: list[str], add_special_tokens: bool) -> list[_Encoding]:
         self.policies.append(add_special_tokens)
         return [_Encoding([len(text)]) for text in texts]
 
 
-def _write_stage2_source(
-    root: Path, source: str, add_special_tokens: bool | None
-) -> None:
+def _write_stage2_source(root: Path, source: str, add_special_tokens: bool | None) -> None:
     source_dir = root / source
     source_dir.mkdir(parents=True)
     np.array([1, 2], dtype="<u2").tofile(source_dir / "query_tokens.bin")
@@ -49,9 +45,7 @@ def _write_stage2_source(
 
 def test_stage2_tokenizer_omits_special_tokens() -> None:
     tokenizer = _RecordingTokenizer()
-    concat, offsets = _tokenize_and_pack(
-        tokenizer, ["one", "three"], chunk_size=1
-    )
+    concat, offsets = _tokenize_and_pack(tokenizer, ["one", "three"], chunk_size=1)
     assert tokenizer.policies == [False, False]
     assert concat.tolist() == [3, 5]
     assert offsets.tolist() == [0, 1, 2]
@@ -72,12 +66,8 @@ def test_stage2_rejects_mixed_policies(tmp_path: Path) -> None:
 
 def test_stage2_negative_seed_is_stable_and_batch_specific() -> None:
     assert _negative_seed(42, 3, "msmarco", 1024) == 3670835513354418040
-    assert _negative_seed(42, 4, "msmarco", 1024) != _negative_seed(
-        42, 3, "msmarco", 1024
-    )
-    assert _negative_seed(42, 3, "nq", 1024) != _negative_seed(
-        42, 3, "msmarco", 1024
-    )
+    assert _negative_seed(42, 4, "msmarco", 1024) != _negative_seed(42, 3, "msmarco", 1024)
+    assert _negative_seed(42, 3, "nq", 1024) != _negative_seed(42, 3, "msmarco", 1024)
 
 
 def test_stage2_tokenize_refuses_legacy_plus_missing_source(
@@ -107,7 +97,5 @@ def test_stage2_legacy_manifest_preserves_resolved_policy(
         out_root=tmp_path,
         sources=("legacy",),
     )
-    manifest = json.loads(
-        (tmp_path / "stage2" / "training" / "manifest.json").read_text()
-    )
+    manifest = json.loads((tmp_path / "stage2" / "training" / "manifest.json").read_text())
     assert manifest["add_special_tokens"] is True

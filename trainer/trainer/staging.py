@@ -101,10 +101,7 @@ def _stage_source_prefix(src: Path, dst: Path, take_rows: int) -> None:
         source_meta = json.loads(meta_path.read_text())
         source_rows = int(source_meta["n_rows"])
         if take_rows <= 0 or take_rows > source_rows:
-            raise ValueError(
-                f"cannot stage {take_rows} rows from {src} "
-                f"(source has {source_rows})"
-            )
+            raise ValueError(f"cannot stage {take_rows} rows from {src} (source has {source_rows})")
         if source_meta.get("tokens_dtype") != "u16":
             raise ValueError(f"unexpected tokens dtype in {meta_path}")
         if source_meta.get("offsets_dtype") != "u64":
@@ -143,8 +140,7 @@ def _stage_source_prefix(src: Path, dst: Path, take_rows: int) -> None:
             count * _TOKEN_BYTES for count in token_counts.values()
         )
         print(
-            f"stage-in source: {src.name}  rows={take_rows:,}  "
-            f"bytes={size_bytes:,}",
+            f"stage-in source: {src.name}  rows={take_rows:,}  bytes={size_bytes:,}",
             flush=True,
         )
         t0 = time.monotonic()
@@ -165,9 +161,7 @@ def _stage_source_prefix(src: Path, dst: Path, take_rows: int) -> None:
             staged_meta["n_rows"] = take_rows
             staged_meta["total_query_tokens"] = token_counts["query"]
             staged_meta["total_doc_tokens"] = token_counts["doc"]
-            (tmp / "meta.json").write_text(
-                json.dumps(staged_meta, indent=2, sort_keys=True) + "\n"
-            )
+            (tmp / "meta.json").write_text(json.dumps(staged_meta, indent=2, sort_keys=True) + "\n")
 
             if dst.exists():
                 shutil.rmtree(dst)

@@ -1,4 +1,4 @@
-"""Decontaminated BEIR evaluation harness (plan2.md track B).
+"""Decontaminated BEIR evaluation harness.
 
 Wraps `sentence_transformers`' `InformationRetrievalEvaluator` against the
 14 `lightonai/*-decontaminated` splits. All three configs (`corpus`,
@@ -11,7 +11,7 @@ need to be embedded in one go. Encoding cost per matryoshka dim is one
 full corpus pass — we reuse one evaluator instance per task and mutate
 `truncate_dim` across dims to keep the loaded corpus/queries in memory.
 
-Aggregates per plan2:
+Reported aggregates:
 - **12-mean** (LightOn-comparable; excludes ClimateFEVER + FEVER) is the
   headline number, for direct comparison to DenseOn/LateOn published
   results.
@@ -35,7 +35,6 @@ if TYPE_CHECKING:
     from sentence_transformers import SentenceTransformer
 
 from .loss import DEFAULT_MATRYOSHKA_DIMS
-
 
 # Canonical short name → HF dataset id.  Most follow the `<task>-decontaminated`
 # pattern; `dbpedia` is the one exception (LightOn published it as
@@ -138,7 +137,7 @@ def _ndcg10_from_result(result: dict) -> float | None:
 
 
 def evaluate_decontam_beir(
-    model: "SentenceTransformer",
+    model: SentenceTransformer,
     matryoshka_dims: tuple[int, ...] = DEFAULT_MATRYOSHKA_DIMS,
     tasks: tuple[str, ...] = ALL_TASKS,
     headline_exclude: tuple[str, ...] = LIGHTON_12_EXCLUDE,
@@ -208,8 +207,12 @@ def evaluate_decontam_beir(
             result = evaluator(model)
             ndcg = _ndcg10_from_result(result)
             ndcg_per_dim[str(dim)] = ndcg
-            print(f"  dim={dim:4d}  ndcg@10={ndcg:.4f}" if ndcg is not None
-                  else f"  dim={dim:4d}  ndcg@10=?", flush=True)
+            print(
+                f"  dim={dim:4d}  ndcg@10={ndcg:.4f}"
+                if ndcg is not None
+                else f"  dim={dim:4d}  ndcg@10=?",
+                flush=True,
+            )
 
         per_task[task] = {
             "n_corpus": loaded.n_corpus,
@@ -220,12 +223,17 @@ def evaluate_decontam_beir(
         }
         if progress_path is not None:
             progress_path.parent.mkdir(parents=True, exist_ok=True)
-            progress_path.write_text(json.dumps(_build_results(
-                per_task,
-                tasks=tasks,
-                matryoshka_dims=matryoshka_dims,
-                headline_exclude=headline_exclude,
-            ), indent=2))
+            progress_path.write_text(
+                json.dumps(
+                    _build_results(
+                        per_task,
+                        tasks=tasks,
+                        matryoshka_dims=matryoshka_dims,
+                        headline_exclude=headline_exclude,
+                    ),
+                    indent=2,
+                )
+            )
             print(f"[{task}] saved resumable progress -> {progress_path}", flush=True)
         # Free big corpus dict + evaluator's cached encodings before
         # loading the next task.
@@ -283,8 +291,7 @@ def _load_partial_results(
     for key, value in expected.items():
         if config.get(key) != value:
             raise RuntimeError(
-                f"partial decontam result has incompatible {key}: "
-                f"{config.get(key)!r} != {value!r}"
+                f"partial decontam result has incompatible {key}: {config.get(key)!r} != {value!r}"
             )
 
     per_task = saved.get("per_task", {})
@@ -372,17 +379,16 @@ def _print_summary(results: dict) -> None:
     for name, row in per_task.items():
         cells = "  ".join(
             f"{row['ndcg@10'][str(d)]:.4f}"
-            if row['ndcg@10'].get(str(d)) is not None else "?".rjust(6)
+            if row["ndcg@10"].get(str(d)) is not None
+            else "?".rjust(6)
             for d in dims
         )
         print(f"{name:>20}  {row['n_qrels']:>7}  {cells}")
 
     print()
-    for label, key in (("12-mean (LightOn)", "12_mean_ndcg@10"),
-                       ("14-mean", "14_mean_ndcg@10")):
+    for label, key in (("12-mean (LightOn)", "12_mean_ndcg@10"), ("14-mean", "14_mean_ndcg@10")):
         agg = results["aggregates"][key]
         cells = "  ".join(
-            f"{agg[str(d)]:.4f}" if agg.get(str(d)) is not None else "?".rjust(6)
-            for d in dims
+            f"{agg[str(d)]:.4f}" if agg.get(str(d)) is not None else "?".rjust(6) for d in dims
         )
         print(f"{label:>20}  {'':>7}  {cells}")

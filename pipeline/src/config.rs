@@ -6,7 +6,7 @@ use clap::ValueEnum;
 
 pub const HF_DATASET: &str = "lightonai/embeddings-pre-training-curated";
 
-/// Subsets that directly contaminate NanoBEIR eval tasks. Per `plan.md`:
+/// Subsets that directly contaminate NanoBEIR eval tasks:
 /// `beir_dbpedia` (~2.17M) → NanoDBPedia
 /// `msmarco` (~3.78M) → NanoMSMARCO
 /// `quora` (~44.9k) → NanoQuoraRetrieval
@@ -44,7 +44,7 @@ pub const INTERLEAVE_CHUNK: u64 = 10_000;
 
 // ---- Tiers -----------------------------------------------------------------
 
-/// `xs ⊂ small ⊂ medium ⊂ full` as row sets per `plan.md`. The schedule is
+/// `xs ⊂ small ⊂ medium ⊂ full` as row sets. The schedule is
 /// prefix-stable, so the first 10M rows of `full` are exactly the rows of
 /// `xs`, etc. This lets the training-time dataloader switch tiers by changing
 /// per-source `take_rows` only, never touching the on-disk binaries.
@@ -54,7 +54,7 @@ pub enum Tier {
     Xs,
     /// 100M pairs — rapid iteration.
     Small,
-    /// 275M pairs — scaling confirmation (plan.md: "250-300M").
+    /// 275M pairs — scaling confirmation.
     Medium,
     /// All retained rows (~659M after exclusions) — production run.
     Full,

@@ -39,7 +39,6 @@ from typing import Literal
 
 import torch
 
-
 Axis = Literal["row", "dim", "hybrid"]
 
 
@@ -78,10 +77,10 @@ def fake_quantize(W: torch.Tensor, spec: QuantSpec) -> torch.Tensor:
         # the per-token magnitude into `scale_row` first leaves a residual
         # with a much tighter dynamic range for the per-dim quantizer to fit.
         scale_row = W.detach().abs().amax(dim=1, keepdim=True).clamp(min=eps)  # (V, 1)
-        W_normalized = W / scale_row                                            # ~[-1, 1]
-        scale_dim = (
-            W_normalized.detach().abs().amax(dim=0, keepdim=True) / qmax
-        ).clamp(min=eps)                                                        # (1, D)
+        W_normalized = W / scale_row  # ~[-1, 1]
+        scale_dim = (W_normalized.detach().abs().amax(dim=0, keepdim=True) / qmax).clamp(
+            min=eps
+        )  # (1, D)
         q = (W_normalized / scale_dim).round().clamp(-qmax, qmax)
         return (q * scale_dim * scale_row).to(W.dtype)
 

@@ -1,5 +1,4 @@
-"""mmap-backed dataloader implementing the batch-level source-mixing strategy
-from `plan.md`.
+"""mmap-backed dataloader implementing batch-level source mixing.
 
 For each batch:
 - Sample a source proportional to its `take_rows` for the current tier.
@@ -51,8 +50,8 @@ class Batch(NamedTuple):
     doc_input_ids: torch.Tensor
     doc_offsets: torch.Tensor
     source: str
-    """Name of the source this batch was drawn from. Useful for the per-source
-    distribution sanity check in `plan.md`."""
+    """Name of the source this batch was drawn from, used for per-source
+    distribution checks."""
 
 
 class TierDataloader:
@@ -76,22 +75,14 @@ class TierDataloader:
         self.drop_last_per_source = drop_last_per_source
         self.rank = rank
         self.world_size = world_size
-        self._sources: list[tuple[SourceReader, int]] = open_tier_sources(
-            cache_root, tier
-        )
+        self._sources: list[tuple[SourceReader, int]] = open_tier_sources(cache_root, tier)
         if not self._sources:
             raise ValueError(f"tier {tier.name} has no sources with take_rows > 0")
-        token_policies = {
-            reader.meta.add_special_tokens for reader, _ in self._sources
-        }
+        token_policies = {reader.meta.add_special_tokens for reader, _ in self._sources}
         if len(token_policies) != 1:
-            by_source = {
-                reader.name: reader.meta.add_special_tokens
-                for reader, _ in self._sources
-            }
+            by_source = {reader.name: reader.meta.add_special_tokens for reader, _ in self._sources}
             raise ValueError(
-                "tier mixes caches with different add_special_tokens policies: "
-                f"{by_source}"
+                f"tier mixes caches with different add_special_tokens policies: {by_source}"
             )
         self.add_special_tokens = token_policies.pop()
 

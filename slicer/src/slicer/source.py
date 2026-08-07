@@ -19,7 +19,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-
 DEFAULT_REPO = "erikkaum/lattice-retrieval"
 WEIGHTS_PATH_IN_REPO = "model.safetensors"
 TOKENIZER_PATH_IN_REPO = "tokenizer.json"
@@ -53,8 +52,7 @@ def resolve_source(
 def _resolve_local(source: Path, want_tokenizer: bool) -> Source:
     if not source.is_file():
         raise FileNotFoundError(
-            f"--source must point at a .safetensors file, got {source!r} "
-            "(not a regular file)"
+            f"--source must point at a .safetensors file, got {source!r} (not a regular file)"
         )
     tokenizer: Path | None = None
     if want_tokenizer:
@@ -73,10 +71,14 @@ def _resolve_hub(repo: str, revision: str, want_tokenizer: bool) -> Source:
     # to be snappy.
     from huggingface_hub import hf_hub_download
 
-    weights = Path(hf_hub_download(repo_id=repo, filename=WEIGHTS_PATH_IN_REPO, revision=revision))
+    weights = Path(
+        hf_hub_download(repo_id=repo, filename=WEIGHTS_PATH_IN_REPO, revision=revision)
+    )
     tokenizer: Path | None = None
     if want_tokenizer:
         tokenizer = Path(
-            hf_hub_download(repo_id=repo, filename=TOKENIZER_PATH_IN_REPO, revision=revision)
+            hf_hub_download(
+                repo_id=repo, filename=TOKENIZER_PATH_IN_REPO, revision=revision
+            )
         )
     return Source(weights=weights, tokenizer=tokenizer, label=f"hf://{repo}@{revision}")

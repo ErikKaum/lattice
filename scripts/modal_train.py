@@ -34,7 +34,6 @@ from pathlib import Path
 
 import modal
 
-
 APP_NAME = "lattice-tokenizer-reproduction"
 TRAINER_IMAGE = (
     "erikkaum/lattice-trainer@"
@@ -51,27 +50,34 @@ app = modal.App(APP_NAME)
 # Reuse the exact image that passed the corrected xs/small/medium runs. Clearing
 # the image entrypoint lets Modal invoke the Python wrapper normally; the actual
 # trainer remains an unchanged subprocess inside that image.
-image = modal.Image.from_registry(
-    TRAINER_IMAGE,
-    # Keep Modal's function runtime isolated. Installing it into /opt/venv
-    # would downgrade packages pinned by the already-validated trainer image.
-    setup_dockerfile_commands=[
-        "RUN uv venv --python /opt/venv/bin/python /opt/modal-venv",
-        "RUN uv pip install --python /opt/modal-venv/bin/python pip awscli",
-        "ENV PATH=/opt/modal-venv/bin:/opt/venv/bin:$PATH",
-    ],
-).entrypoint([]).add_local_file(
-    "trainer/trainer/decontam_eval.py",
-    "/app/trainer/trainer/decontam_eval.py",
-).add_local_file(
-    "trainer/trainer/eval.py",
-    "/app/trainer/trainer/eval.py",
-).add_local_file(
-    "trainer/trainer/decontam_quant_eval.py",
-    "/app/trainer/trainer/decontam_quant_eval.py",
-).add_local_file(
-    "trainer/trainer/cli.py",
-    "/app/trainer/trainer/cli.py",
+image = (
+    modal.Image.from_registry(
+        TRAINER_IMAGE,
+        # Keep Modal's function runtime isolated. Installing it into /opt/venv
+        # would downgrade packages pinned by the already-validated trainer image.
+        setup_dockerfile_commands=[
+            "RUN uv venv --python /opt/venv/bin/python /opt/modal-venv",
+            "RUN uv pip install --python /opt/modal-venv/bin/python pip awscli",
+            "ENV PATH=/opt/modal-venv/bin:/opt/venv/bin:$PATH",
+        ],
+    )
+    .entrypoint([])
+    .add_local_file(
+        "trainer/trainer/decontam_eval.py",
+        "/app/trainer/trainer/decontam_eval.py",
+    )
+    .add_local_file(
+        "trainer/trainer/eval.py",
+        "/app/trainer/trainer/eval.py",
+    )
+    .add_local_file(
+        "trainer/trainer/decontam_quant_eval.py",
+        "/app/trainer/trainer/decontam_quant_eval.py",
+    )
+    .add_local_file(
+        "trainer/trainer/cli.py",
+        "/app/trainer/trainer/cli.py",
+    )
 )
 
 hf_token = modal.Secret.from_name(
@@ -684,8 +690,7 @@ def _eval_decontam(
             "s3",
             "cp",
             (
-                f"s3://{HF_S3_BUCKET}/runs/{run_name}/{stage}/"
-                "decontam/decontam_beir.partial.json"
+                f"s3://{HF_S3_BUCKET}/runs/{run_name}/{stage}/decontam/decontam_beir.partial.json"
             ),
             str(partial_path),
         )

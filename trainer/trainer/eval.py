@@ -1,5 +1,5 @@
-"""NanoBEIR evaluation. Plan.md primary metric: NanoBEIR mean NDCG@10
-across 13 tasks, plus per-task breakdown and per-matryoshka-dim curve.
+"""NanoBEIR evaluation using mean NDCG@10 across 13 tasks, plus per-task
+breakdowns and a per-Matryoshka-dimension curve.
 
 We round-trip through `sentence-transformers`' `SentenceTransformer` /
 `StaticEmbedding` for evaluation. This is the canonical eval path the
@@ -48,7 +48,7 @@ def evaluate(
     """Run NanoBEIR at every matryoshka dim. Returns the aggregated result
     dict and writes it to `out_dir / nanobeir.json`.
 
-    `dataset_names=None` runs the full 13-task NanoBEIR per `plan.md`.
+    `dataset_names=None` runs the full 13-task NanoBEIR suite.
     Pass a subset (e.g., `('scifact',)`) to speed up smoke tests.
     """
     from sentence_transformers.sentence_transformer.evaluation import (
@@ -85,8 +85,9 @@ def evaluate(
         for inner in evaluator.evaluators:
             inner.truncate_dim = dim
         result = evaluator(model)
-        all_results[str(dim)] = {k: float(v) for k, v in result.items()
-                                 if isinstance(v, (int, float))}
+        all_results[str(dim)] = {
+            k: float(v) for k, v in result.items() if isinstance(v, (int, float))
+        }
         mean = result.get("NanoBEIR_mean_cosine_ndcg@10", float("nan"))
         print(f"dim={dim}  mean_ndcg@10={mean:.4f}", flush=True)
 
@@ -139,10 +140,7 @@ def evaluate_quantization_sweep(
     }
     partial_path = out_dir / "quantization_sweep.partial.json"
     rows = _load_quantization_sweep_progress(partial_path, sweep_config)
-    completed = {
-        (int(row["dim"]), int(row["bits"]), row.get("axis"))
-        for row in rows
-    }
+    completed = {(int(row["dim"]), int(row["bits"]), row.get("axis")) for row in rows}
     if rows:
         print(
             f"resuming quantization sweep with {len(rows)} completed cells",
@@ -156,8 +154,7 @@ def evaluate_quantization_sweep(
                 key = (dim, bits, axis)
                 if key in completed:
                     print(
-                        f"dim={dim:4d}  bits={bits:2d}  "
-                        f"axis={axis or '-':>4}  already complete",
+                        f"dim={dim:4d}  bits={bits:2d}  axis={axis or '-':>4}  already complete",
                         flush=True,
                     )
                     continue
@@ -189,8 +186,7 @@ def evaluate_quantization_sweep(
                     {"config": sweep_config, "rows": rows},
                 )
                 print(
-                    f"dim={dim:4d}  bits={bits:2d}  axis={axis or '-':>4}  "
-                    f"ndcg@10={mean:.4f}",
+                    f"dim={dim:4d}  bits={bits:2d}  axis={axis or '-':>4}  ndcg@10={mean:.4f}",
                     flush=True,
                 )
 
@@ -225,10 +221,7 @@ def _load_quantization_sweep_progress(
         print(f"ignoring malformed quant sweep progress at {path}", flush=True)
         return []
     try:
-        actual_keys = [
-            (int(row["dim"]), int(row["bits"]), row.get("axis"))
-            for row in rows
-        ]
+        actual_keys = [(int(row["dim"]), int(row["bits"]), row.get("axis")) for row in rows]
     except (KeyError, TypeError, ValueError):
         print(f"ignoring malformed quant sweep progress at {path}", flush=True)
         return []

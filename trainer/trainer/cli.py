@@ -34,7 +34,7 @@ def _add_train_args(p: argparse.ArgumentParser) -> None:
         type=int,
         default=None,
         help="Stop after this many steps (across all epochs). Useful for "
-             "smoke tests; otherwise leave unset.",
+        "smoke tests; otherwise leave unset.",
     )
     p.add_argument("--lr", type=float, default=2e-1)
     p.add_argument("--weight-decay", type=float, default=0.0)
@@ -89,9 +89,9 @@ def main() -> None:
         nargs="+",
         default=None,
         help="Optional subset of tasks (default: all 14). Names: arguana, "
-             "climate-fever, dbpedia, fever, fiqa, hotpotqa, msmarco, "
-             "nfcorpus, nq, quora, scidocs, scifact, trec-covid, "
-             "webis-touche2020.",
+        "climate-fever, dbpedia, fever, fiqa, hotpotqa, msmarco, "
+        "nfcorpus, nq, quora, scidocs, scifact, trec-covid, "
+        "webis-touche2020.",
     )
 
     p_beir_hub = sub.add_parser(
@@ -135,8 +135,8 @@ def main() -> None:
         "--force",
         action="store_true",
         help="Overwrite existing split files even if they were built with a different seed. "
-             "Don't do this casually — every existing stage-2 comparison was made against "
-             "the existing split.",
+        "Don't do this casually — every existing stage-2 comparison was made against "
+        "the existing split.",
     )
 
     p_build_surface = sub.add_parser(
@@ -162,7 +162,9 @@ def main() -> None:
     )
     p_eval_s2.add_argument("checkpoint", type=Path)
     p_eval_s2.add_argument(
-        "--cache-root", type=Path, default=Path("../pipeline/cache"),
+        "--cache-root",
+        type=Path,
+        default=Path("../pipeline/cache"),
     )
     p_eval_s2.add_argument(
         "--surface-dir",
@@ -187,13 +189,17 @@ def main() -> None:
         help="Root above the `stage2/training/<source>/` per-source dirs.",
     )
     p_tok2.add_argument(
-        "--cache-root", type=Path, default=Path("../pipeline/cache"),
+        "--cache-root",
+        type=Path,
+        default=Path("../pipeline/cache"),
         help="Where tokenizer.json lives.",
     )
     p_tok2.add_argument("--nv-threshold", type=float, default=0.95)
     p_tok2.add_argument("--n-negatives", type=int, default=50)
     p_tok2.add_argument(
-        "--sources", nargs="+", default=None,
+        "--sources",
+        nargs="+",
+        default=None,
         help="Optional subset (default: all 7).",
     )
 
@@ -201,10 +207,15 @@ def main() -> None:
         "stage2-train",
         help="fine-tune a stage-1 checkpoint with hard negatives",
     )
-    p_s2_train.add_argument("--init-from", type=Path, required=True,
-                             help="Stage-1 .safetensors checkpoint to fine-tune from.")
     p_s2_train.add_argument(
-        "--training-root", type=Path,
+        "--init-from",
+        type=Path,
+        required=True,
+        help="Stage-1 .safetensors checkpoint to fine-tune from.",
+    )
+    p_s2_train.add_argument(
+        "--training-root",
+        type=Path,
         default=Path("../pipeline/cache/stage2/training"),
     )
     p_s2_train.add_argument("--out-dir", type=Path, default=Path("./runs/stage2/latest"))
@@ -229,12 +240,6 @@ def main() -> None:
     p_export.add_argument("checkpoint", type=Path)
     p_export.add_argument("--tokenizer", type=Path, required=True)
     p_export.add_argument("--out-dir", type=Path, required=True)
-    p_export.add_argument(
-        "--model-card",
-        type=Path,
-        default=None,
-        help="Model card to copy to README.md (default: repository MODEL_CARD.md).",
-    )
 
     args = ap.parse_args()
     if args.cmd == "train":
@@ -275,7 +280,10 @@ def main() -> None:
         tokenizer_path = args.cache_root / "tokenizer.json"
         tasks = tuple(args.tasks) if args.tasks else ALL_TASKS
         evaluate_decontam_from_checkpoint(
-            args.checkpoint, tokenizer_path, args.out_dir, tasks=tasks,
+            args.checkpoint,
+            tokenizer_path,
+            args.out_dir,
+            tasks=tasks,
         )
     elif args.cmd == "eval-beir-hub":
         from .decontam_eval import ALL_TASKS, evaluate_decontam_from_hub
@@ -358,13 +366,12 @@ def main() -> None:
         )
         stage2_train(cfg)
     elif args.cmd == "export-hf":
-        from .export_hf import DEFAULT_MODEL_CARD, export_hf_model
+        from .export_hf import export_hf_model
 
         export_hf_model(
             checkpoint_path=args.checkpoint,
             tokenizer_path=args.tokenizer,
             out_dir=args.out_dir,
-            model_card_path=args.model_card or DEFAULT_MODEL_CARD,
         )
     else:
         ap.error(f"unknown cmd {args.cmd}")

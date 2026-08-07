@@ -70,8 +70,10 @@ COPY --from=ghcr.io/astral-sh/uv:0.5 /uv /uvx /usr/local/bin/
 
 WORKDIR /app
 
-# Install Python deps first so source edits don't bust the layer cache.
-COPY pyproject.toml /app/trainer/
+# Hatchling needs both the declared README and package source when preparing
+# the editable install.
+COPY pyproject.toml README.md /app/trainer/
+COPY trainer /app/trainer/trainer
 RUN cd /app/trainer \
  && uv venv /opt/venv \
  && uv pip install --python /opt/venv/bin/python -e . \
@@ -85,9 +87,6 @@ RUN cd /app/trainer \
 
 ENV PATH=/opt/venv/bin:$PATH \
     PYTHONPATH=/app/trainer
-
-# Source last so iterating on code only rebuilds the bottom layer.
-COPY trainer /app/trainer/trainer
 
 # Mount targets — some FUSE volume mounters fail when the path doesn't
 # preexist in the image.

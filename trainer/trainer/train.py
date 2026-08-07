@@ -131,14 +131,11 @@ def train(cfg: TrainConfig) -> Path:
         total_steps = min(total_steps, cfg.max_steps)
 
     device = torch.device(
-        f"{cfg.device}:{local_rank}" if cfg.device == "cuda" and world_size > 1
-        else cfg.device
+        f"{cfg.device}:{local_rank}" if cfg.device == "cuda" and world_size > 1 else cfg.device
     )
     dtype = getattr(torch, cfg.dtype)
 
-    ignored_token_ids = (
-        BERT_BOUNDARY_TOKEN_IDS if loader.add_special_tokens else ()
-    )
+    ignored_token_ids = BERT_BOUNDARY_TOKEN_IDS if loader.add_special_tokens else ()
     model = StaticEmbeddingModel(
         ignored_token_ids=ignored_token_ids,
     ).to(device=device, dtype=dtype)
@@ -163,9 +160,7 @@ def train(cfg: TrainConfig) -> Path:
 
     if is_main:
         cfg.out_dir.mkdir(parents=True, exist_ok=True)
-        _write_config(
-            cfg, tier, steps_per_epoch, world_size, loader.add_special_tokens
-        )
+        _write_config(cfg, tier, steps_per_epoch, world_size, loader.add_special_tokens)
 
     global_step = 0
     last_log = time.time()
@@ -236,10 +231,7 @@ def train(cfg: TrainConfig) -> Path:
                 running_loss = 0.0
                 running_count = 0
 
-            if (
-                is_main and cfg.save_every
-                and global_step % cfg.save_every == 0
-            ):
+            if is_main and cfg.save_every and global_step % cfg.save_every == 0:
                 save_checkpoint(model, cfg.out_dir / f"step_{global_step}.safetensors")
 
         if is_main:
@@ -275,9 +267,7 @@ def save_checkpoint(model: torch.nn.Module, path: Path) -> None:
             "vocab_size": str(inner.vocab_size),
             "embedding_dim": str(inner.embedding_dim),
             "tokenizer": "bert-base-uncased",
-            "ignored_token_ids": ",".join(
-                str(token_id) for token_id in inner.ignored_token_ids
-            ),
+            "ignored_token_ids": ",".join(str(token_id) for token_id in inner.ignored_token_ids),
         },
     )
     print(f"saved checkpoint -> {path}", flush=True)
@@ -301,9 +291,7 @@ def load_checkpoint(path: Path) -> dict:
         "vocab_size": int(meta.get("vocab_size", weight.shape[0])),
         "embedding_dim": int(meta.get("embedding_dim", weight.shape[1])),
         "ignored_token_ids": tuple(
-            int(token_id)
-            for token_id in meta.get("ignored_token_ids", "").split(",")
-            if token_id
+            int(token_id) for token_id in meta.get("ignored_token_ids", "").split(",") if token_id
         ),
     }
 
@@ -337,11 +325,7 @@ def _write_config(
         "steps_per_epoch_per_rank": steps_per_epoch,
         "world_size": world_size,
         "cache_add_special_tokens": cache_add_special_tokens,
-        "ignored_token_ids": (
-            list(BERT_BOUNDARY_TOKEN_IDS)
-            if cache_add_special_tokens
-            else []
-        ),
+        "ignored_token_ids": (list(BERT_BOUNDARY_TOKEN_IDS) if cache_add_special_tokens else []),
     }
     (cfg.out_dir / "train_config.json").write_text(json.dumps(data, indent=2, default=str))
 

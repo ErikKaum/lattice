@@ -177,7 +177,8 @@ absolute Stage-2 NanoBEIR score is not used as a generalization claim.
 
 The Hub export is the only model artifact intended for publication. It wraps
 the final checkpoint in Sentence Transformers' normal `StaticEmbedding`
-layout and copies the repository's model card.
+layout. It deliberately exports only model and tokenizer files; model-card and
+repository metadata are maintained separately in the Hugging Face repository.
 
 ```bash
 uv run trainer export-hf \
@@ -187,8 +188,8 @@ uv run trainer export-hf \
 ```
 
 The command refuses to write into a non-empty directory. Inspect the result
-locally before running the separate `hf upload` command documented in the
-[root README](../README.md#exporting-the-canonical-hugging-face-model).
+locally before copying it into the separately maintained Hugging Face
+repository and uploading it.
 
 ## Cloud reproduction
 

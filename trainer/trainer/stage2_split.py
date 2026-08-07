@@ -1,9 +1,9 @@
-"""Stage-2 train/eval split builder (eval_plan.md Part 1, step 1).
+"""Stage-2 train/eval split builder.
 
 Splits `lightonai/embeddings-fine-tuning` into a stage-2 training set and a
 held-out in-domain eval set.
 
-Design contract (eval_plan.md):
+Design contract:
 
 - **Query-level**: a query and all its positives go entirely to train *or*
   eval, never both. Splitting at the pair level would leak the same query
@@ -13,8 +13,8 @@ Design contract (eval_plan.md):
   independently. A global 20% sample would let MSMARCO (502K queries)
   swamp the eval and could leave FiQA-equivalent sources sparsely
   measured. Stratify with an independent RNG per source.
-- **Cap at `eval_cap` queries per source** (default 100; plan2 §1 "50-100
-  per source"). If 20% exceeds the cap, downsample to the cap; if it's
+- **Cap at `eval_cap` queries per source** (default 100). If 20% exceeds
+  the cap, downsample to the cap; if it's
   under, keep all of them. This makes the eval Nano-fast by construction.
 - **Reproducibility**: fixed top-level seed, deterministic per-source RNG
   derived from `(seed, source)`. Split manifests written to disk include
@@ -49,15 +49,13 @@ from pathlib import Path
 
 import numpy as np
 
-
 DATASET = "lightonai/embeddings-fine-tuning"
 SOURCES: tuple[str, ...] = ("fiqa", "nq", "hotpotqa", "msmarco", "fever", "squadv2", "trivia")
 
 DEFAULT_SEED = 42
 DEFAULT_EVAL_FRACTION = 0.20
-DEFAULT_EVAL_CAP = 100  # plan2 §1: "50-100 per source"; pick upper end so
-                        # calibration in Part 2 has more discriminative
-                        # headroom — easy to tighten if it survives.
+DEFAULT_EVAL_CAP = 100  # Enough headroom for ranking-preservation checks while
+# keeping the held-out surface Nano-fast.
 
 
 @dataclass(frozen=True)
@@ -106,7 +104,7 @@ def split_source(
     shuffled = [qids[i] for i in perm]
 
     n_total = len(shuffled)
-    n_eval_target = int(round(n_total * eval_fraction))
+    n_eval_target = round(n_total * eval_fraction)
     n_eval = min(n_eval_target, eval_cap)
 
     eval_qids = sorted(shuffled[:n_eval])

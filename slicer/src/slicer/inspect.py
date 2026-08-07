@@ -65,8 +65,7 @@ def inspect_file(path: Path) -> int:
 
     if variant not in SUPPORTED_VARIANTS:
         errors.append(
-            f"unknown lattice_variant={variant!r}; "
-            f"expected one of {list(SUPPORTED_VARIANTS)}"
+            f"unknown lattice_variant={variant!r}; expected one of {list(SUPPORTED_VARIANTS)}"
         )
 
     for required in ("bits", "axis", "dim", "vocab_size"):
@@ -114,13 +113,14 @@ def inspect_file(path: Path) -> int:
             if s_dtype != "float32":
                 errors.append(f"`scale` dtype {s_dtype}, expected float32")
             if axis == "row" and s_shape != (vocab,):
-                errors.append(f"per-row scale should be shape ({vocab},), got {s_shape}")
+                errors.append(
+                    f"per-row scale should be shape ({vocab},), got {s_shape}"
+                )
             elif axis == "dim" and s_shape != (dim,):
                 errors.append(f"per-dim scale should be shape ({dim},), got {s_shape}")
             elif axis not in ("row", "dim"):
                 errors.append(
-                    f"axis={axis!r} unrecognized for quantized variant; "
-                    "expected 'row' or 'dim'"
+                    f"axis={axis!r} unrecognized for quantized variant; expected 'row' or 'dim'"
                 )
 
     if bits < 8:
@@ -132,7 +132,10 @@ def inspect_file(path: Path) -> int:
 
 
 def _check_weight_layout(
-    bits: int, dim: int, w_shape: tuple[int, ...], w_dtype: str,
+    bits: int,
+    dim: int,
+    w_shape: tuple[int, ...],
+    w_dtype: str,
 ) -> list[str]:
     """Per-bitwidth weight shape + dtype checks. Returns a list of errors."""
     errs: list[str] = []
@@ -162,8 +165,9 @@ def _check_weight_layout(
     return errs
 
 
-def _report(variant: str, errors: list[str], *, dim: int | None = None,
-            vocab: int | None = None) -> int:
+def _report(
+    variant: str, errors: list[str], *, dim: int | None = None, vocab: int | None = None
+) -> int:
     if errors:
         print(f"INVALID lattice model (variant={variant}) — {len(errors)} issue(s):")
         for e in errors:

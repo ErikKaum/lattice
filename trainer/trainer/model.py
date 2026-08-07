@@ -14,8 +14,7 @@ ablations, but the defaults match the reference exactly.
 from __future__ import annotations
 
 import torch
-import torch.nn as nn
-
+from torch import nn
 
 # bert-base-uncased vocab.
 DEFAULT_VOCAB_SIZE = 30_522
@@ -50,10 +49,7 @@ class StaticEmbeddingModel(nn.Module):
         self.embedding_dim = embedding_dim
         ignored_token_ids = tuple(sorted(set(ignored_token_ids)))
         if any(token_id < 0 or token_id >= vocab_size for token_id in ignored_token_ids):
-            raise ValueError(
-                f"ignored_token_ids must be in [0, {vocab_size}): "
-                f"{ignored_token_ids}"
-            )
+            raise ValueError(f"ignored_token_ids must be in [0, {vocab_size}): {ignored_token_ids}")
         self.ignored_token_ids = ignored_token_ids
         self.embedding = nn.EmbeddingBag(
             vocab_size,
@@ -74,13 +70,9 @@ class StaticEmbeddingModel(nn.Module):
     def zero_ignored_token_rows(self) -> None:
         """Zero compatibility-only token rows, including after checkpoint load."""
         if self._ignored_token_ids_tensor.numel():
-            self.embedding.weight.index_fill_(
-                0, self._ignored_token_ids_tensor, 0.0
-            )
+            self.embedding.weight.index_fill_(0, self._ignored_token_ids_tensor, 0.0)
 
-    def _zero_ignored_token_gradients(
-        self, gradient: torch.Tensor
-    ) -> torch.Tensor:
+    def _zero_ignored_token_gradients(self, gradient: torch.Tensor) -> torch.Tensor:
         # The embedding gradient is dense (EmbeddingBag's default). Mutating
         # this hook input avoids allocating a full ~125 MB gradient copy.
         gradient.index_fill_(0, self._ignored_token_ids_tensor, 0.0)

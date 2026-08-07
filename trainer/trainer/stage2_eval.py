@@ -1,4 +1,4 @@
-"""Stage-2 held-out in-domain evaluation surface (eval_plan.md Parts 1-2).
+"""Stage-2 held-out in-domain evaluation surface.
 
 Two stages:
 
@@ -42,7 +42,7 @@ if TYPE_CHECKING:
     from sentence_transformers import SentenceTransformer
 
 
-DEFAULT_N_DISTRACTORS = 3000  # eval_plan.md §1: "few thousand docs per source"
+DEFAULT_N_DISTRACTORS = 3000
 
 
 @dataclass(frozen=True)
@@ -128,8 +128,11 @@ def build_eval_surface(
     # multi-million-row sources like trivia (21M) and msmarco (8.8M).
     ids_col = np.asarray(docs_ds["document_id"], dtype=np.int64)
     # Common fast-fast case: ids are 0..N-1 in order → row == document_id.
-    if ids_col.size > 0 and ids_col[0] == 0 and ids_col[-1] == n_docs - 1 and (
-        np.diff(ids_col[:: max(1, n_docs // 1000)]).min() > 0
+    if (
+        ids_col.size > 0
+        and ids_col[0] == 0
+        and ids_col[-1] == n_docs - 1
+        and (np.diff(ids_col[:: max(1, n_docs // 1000)]).min() > 0)
     ):
         id_to_row = None  # signal "use document_id directly as row index"
     else:
@@ -162,7 +165,9 @@ def build_eval_surface(
         needed_arr = np.array(needed_doc_ids, dtype=np.int64)
         positions = np.searchsorted(sorted_ids, needed_arr)
         # Guard: every needed doc_id must actually exist in the column.
-        valid = (positions < sorted_ids.size) & (sorted_ids[positions.clip(max=sorted_ids.size - 1)] == needed_arr)
+        valid = (positions < sorted_ids.size) & (
+            sorted_ids[positions.clip(max=sorted_ids.size - 1)] == needed_arr
+        )
         if not valid.all():
             missing = needed_arr[~valid]
             raise RuntimeError(
@@ -172,9 +177,7 @@ def build_eval_surface(
         row_indices = sort_idx[positions].tolist()
 
     subset = docs_ds.select(row_indices)
-    corpus_text: dict[int, str] = {
-        int(row["document_id"]): row["document"] for row in subset
-    }
+    corpus_text: dict[int, str] = {int(row["document_id"]): row["document"] for row in subset}
 
     # 4. Sanity: every positive must be in the corpus.
     missing_pos = eval_positive_ids - set(corpus_text)
@@ -231,12 +234,17 @@ def build_all_eval_surfaces(
             data = json.load(f)
         summary[source] = data["meta"]
 
-    (out_dir / "manifest.json").write_text(json.dumps({
-        "n_distractors_per_source": n_distractors,
-        "seed": seed,
-        "sources": list(sources),
-        "per_source": summary,
-    }, indent=2))
+    (out_dir / "manifest.json").write_text(
+        json.dumps(
+            {
+                "n_distractors_per_source": n_distractors,
+                "seed": seed,
+                "sources": list(sources),
+                "per_source": summary,
+            },
+            indent=2,
+        )
+    )
 
 
 # --------------------------------------------------------------------------
@@ -263,7 +271,7 @@ def _ndcg10_from_result(result: dict) -> float | None:
 
 
 def evaluate_stage2_heldout(
-    model: "SentenceTransformer",
+    model: SentenceTransformer,
     surface_dir: Path,
     matryoshka_dims: tuple[int, ...] = DEFAULT_MATRYOSHKA_DIMS,
     sources: tuple[str, ...] = SOURCES,
@@ -274,7 +282,7 @@ def evaluate_stage2_heldout(
     matryoshka dim, plus two aggregates: an unweighted mean (each source
     counts once — guards against MSMARCO swamping the mean by query
     count) and a weighted mean (by `n_queries`, the realistic mixed
-    traffic number). Both are reported per eval_plan.md §1."""
+    traffic number). Both are reported."""
     from sentence_transformers.sentence_transformer.evaluation import (
         InformationRetrievalEvaluator,
     )
@@ -284,8 +292,7 @@ def evaluate_stage2_heldout(
         t0 = time.time()
         task = load_heldout_task(surface_dir, source)
         print(
-            f"[{source}] corpus={task.n_corpus} queries={task.n_queries} "
-            f"qrels={task.n_qrels}",
+            f"[{source}] corpus={task.n_corpus} queries={task.n_queries} qrels={task.n_qrels}",
             flush=True,
         )
         evaluator = InformationRetrievalEvaluator(
@@ -310,7 +317,8 @@ def evaluate_stage2_heldout(
             ndcg = _ndcg10_from_result(result)
             ndcg_per_dim[str(dim)] = ndcg
             print(
-                f"  dim={dim:4d}  ndcg@10={ndcg:.4f}" if ndcg is not None
+                f"  dim={dim:4d}  ndcg@10={ndcg:.4f}"
+                if ndcg is not None
                 else f"  dim={dim:4d}  ndcg@10=?",
                 flush=True,
             )
@@ -324,6 +332,7 @@ def evaluate_stage2_heldout(
         }
         del task, evaluator
         import gc
+
         gc.collect()
 
     aggregates = _compute_aggregates(per_source, matryoshka_dims)
@@ -344,9 +353,11 @@ def _compute_aggregates(per_source: dict, dims: tuple[int, ...]) -> dict:
     weighted: dict[str, float | None] = {}
     for dim in dims:
         d = str(dim)
-        rows = [(s, r["ndcg@10"][d], r["n_queries"])
-                for s, r in per_source.items()
-                if r["ndcg@10"].get(d) is not None]
+        rows = [
+            (s, r["ndcg@10"][d], r["n_queries"])
+            for s, r in per_source.items()
+            if r["ndcg@10"].get(d) is not None
+        ]
         if not rows:
             unweighted[d] = None
             weighted[d] = None
@@ -367,17 +378,19 @@ def _print_summary(results: dict) -> None:
     for name, row in results["per_source"].items():
         cells = "  ".join(
             f"{row['ndcg@10'][str(d)]:.4f}"
-            if row['ndcg@10'].get(str(d)) is not None else "?".rjust(6)
+            if row["ndcg@10"].get(str(d)) is not None
+            else "?".rjust(6)
             for d in dims
         )
         print(f"{name:>12}  {row['n_queries']:>7}  {cells}")
     print()
-    for label, key in (("unweighted mean", "unweighted_mean_ndcg@10"),
-                       ("weighted mean", "weighted_mean_ndcg@10")):
+    for label, key in (
+        ("unweighted mean", "unweighted_mean_ndcg@10"),
+        ("weighted mean", "weighted_mean_ndcg@10"),
+    ):
         agg = results["aggregates"][key]
         cells = "  ".join(
-            f"{agg[str(d)]:.4f}" if agg.get(str(d)) is not None else "?".rjust(6)
-            for d in dims
+            f"{agg[str(d)]:.4f}" if agg.get(str(d)) is not None else "?".rjust(6) for d in dims
         )
         print(f"{label:>12}  {'':>7}  {cells}")
 

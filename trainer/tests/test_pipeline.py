@@ -42,12 +42,8 @@ def _write_source(
             cur += len(r[idx])
         offsets.append(cur)  # sentinel
 
-        (d / f"{side}_tokens.bin").write_bytes(
-            np.array(tokens, dtype="<u2").tobytes()
-        )
-        (d / f"{side}_offsets.bin").write_bytes(
-            np.array(offsets, dtype="<u8").tobytes()
-        )
+        (d / f"{side}_tokens.bin").write_bytes(np.array(tokens, dtype="<u2").tobytes())
+        (d / f"{side}_offsets.bin").write_bytes(np.array(offsets, dtype="<u8").tobytes())
 
     meta = {
         "source": name,
@@ -71,13 +67,17 @@ def _write_tiers(cache_root: Path, tiers: list[dict]) -> None:
 def fake_cache(tmp_path: Path) -> Path:
     rng = np.random.default_rng(0)
     rows_a = [
-        ([int(x) for x in rng.integers(1, 1000, size=rng.integers(3, 20))],
-         [int(x) for x in rng.integers(1, 1000, size=rng.integers(10, 50))])
+        (
+            [int(x) for x in rng.integers(1, 1000, size=rng.integers(3, 20))],
+            [int(x) for x in rng.integers(1, 1000, size=rng.integers(10, 50))],
+        )
         for _ in range(40)
     ]
     rows_b = [
-        ([int(x) for x in rng.integers(1, 1000, size=rng.integers(2, 8))],
-         [int(x) for x in rng.integers(1, 1000, size=rng.integers(5, 25))])
+        (
+            [int(x) for x in rng.integers(1, 1000, size=rng.integers(2, 8))],
+            [int(x) for x in rng.integers(1, 1000, size=rng.integers(5, 25))],
+        )
         for _ in range(60)
     ]
     _write_source(tmp_path, "src_a", rows_a)
@@ -124,9 +124,7 @@ class TestSourceReader:
             ref = r.get_row("query", 5 + i)
             assert np.array_equal(sliced, ref)
 
-    def test_metadata_without_policy_is_recognized_as_legacy(
-        self, tmp_path: Path
-    ):
+    def test_metadata_without_policy_is_recognized_as_legacy(self, tmp_path: Path):
         _write_source(
             tmp_path,
             "legacy",
@@ -174,20 +172,20 @@ class TestTierDataloader:
         _write_source(tmp_path, "legacy", rows, add_special_tokens=True)
         _write_tiers(
             tmp_path,
-            [{
-                "tier": "xs",
-                "target_rows": 4,
-                "actual_rows": 4,
-                "per_source": [
-                    {"source": "canonical", "take_rows": 2},
-                    {"source": "legacy", "take_rows": 2},
-                ],
-            }],
+            [
+                {
+                    "tier": "xs",
+                    "target_rows": 4,
+                    "actual_rows": 4,
+                    "per_source": [
+                        {"source": "canonical", "take_rows": 2},
+                        {"source": "legacy", "take_rows": 2},
+                    ],
+                }
+            ],
         )
         with pytest.raises(ValueError, match="mixes caches"):
-            TierDataloader(
-                load_tiers(tmp_path)["xs"], tmp_path, batch_size=2
-            )
+            TierDataloader(load_tiers(tmp_path)["xs"], tmp_path, batch_size=2)
 
 
 class TestModel:
@@ -212,17 +210,11 @@ class TestModel:
 
         clean_ids = torch.tensor([5, 6, 7, 8], dtype=torch.long)
         clean_offsets = torch.tensor([0, 2], dtype=torch.long)
-        legacy_ids = torch.tensor(
-            [101, 5, 6, 102, 101, 7, 8, 102], dtype=torch.long
-        )
+        legacy_ids = torch.tensor([101, 5, 6, 102, 101, 7, 8, 102], dtype=torch.long)
         legacy_offsets = torch.tensor([0, 4], dtype=torch.long)
 
-        clean_out = torch.nn.functional.normalize(
-            clean(clean_ids, clean_offsets), dim=-1
-        )
-        legacy_out = torch.nn.functional.normalize(
-            legacy(legacy_ids, legacy_offsets), dim=-1
-        )
+        clean_out = torch.nn.functional.normalize(clean(clean_ids, clean_offsets), dim=-1)
+        legacy_out = torch.nn.functional.normalize(legacy(legacy_ids, legacy_offsets), dim=-1)
         torch.testing.assert_close(clean_out, legacy_out)
 
         clean_out.sum().backward()
@@ -231,9 +223,7 @@ class TestModel:
             clean.embedding.weight.grad[[5, 6, 7, 8]],
             legacy.embedding.weight.grad[[5, 6, 7, 8]],
         )
-        assert torch.count_nonzero(
-            legacy.embedding.weight.grad[list(BERT_BOUNDARY_TOKEN_IDS)]
-        ) == 0
+        assert torch.count_nonzero(legacy.embedding.weight.grad[list(BERT_BOUNDARY_TOKEN_IDS)]) == 0
 
     def test_zero_ignored_rows_after_checkpoint_copy(self):
         model = StaticEmbeddingModel(
@@ -244,13 +234,9 @@ class TestModel:
         with torch.no_grad():
             model.embedding.weight.fill_(1.0)
         model.zero_ignored_token_rows()
-        assert torch.count_nonzero(
-            model.embedding.weight[list(BERT_BOUNDARY_TOKEN_IDS)]
-        ) == 0
+        assert torch.count_nonzero(model.embedding.weight[list(BERT_BOUNDARY_TOKEN_IDS)]) == 0
 
-    def test_checkpoint_records_legacy_compatibility(
-        self, tmp_path: Path
-    ):
+    def test_checkpoint_records_legacy_compatibility(self, tmp_path: Path):
         from trainer.train import load_checkpoint, save_checkpoint
 
         model = StaticEmbeddingModel(
@@ -311,9 +297,7 @@ class TestEndToEnd:
         tiers = load_tiers(fake_cache)
         loader = TierDataloader(tiers["xs"], fake_cache, batch_size=8, seed=1)
         model = StaticEmbeddingModel(vocab_size=1024, embedding_dim=32)
-        criterion = MatryoshkaLoss(
-            MultipleNegativesRankingLoss(), dims=(32, 16, 8)
-        )
+        criterion = MatryoshkaLoss(MultipleNegativesRankingLoss(), dims=(32, 16, 8))
         opt = torch.optim.AdamW(model.parameters(), lr=0.1)
         batch = next(loader.epoch_iter(0))
         a = model(batch.query_input_ids, batch.query_offsets)
@@ -335,8 +319,12 @@ class TestDDPSharding:
         seen_keys: set[tuple[int, int]] = set()
         for rank in range(world_size):
             loader = TierDataloader(
-                tiers["xs"], fake_cache, batch_size=4, seed=99,
-                rank=rank, world_size=world_size,
+                tiers["xs"],
+                fake_cache,
+                batch_size=4,
+                seed=99,
+                rank=rank,
+                world_size=world_size,
             )
             count = 0
             for b in loader.epoch_iter(0):
@@ -353,8 +341,12 @@ class TestDDPSharding:
         tiers = load_tiers(fake_cache)
         base = TierDataloader(tiers["xs"], fake_cache, batch_size=4, seed=7)
         ddp = TierDataloader(
-            tiers["xs"], fake_cache, batch_size=4, seed=7,
-            rank=0, world_size=1,
+            tiers["xs"],
+            fake_cache,
+            batch_size=4,
+            seed=7,
+            rank=0,
+            world_size=1,
         )
         base_sources = [b.source for b in base.epoch_iter(0)]
         ddp_sources = [b.source for b in ddp.epoch_iter(0)]
@@ -364,8 +356,9 @@ class TestDDPSharding:
 class TestStaging:
     def test_stage_in_round_trip(self, fake_cache, tmp_path, monkeypatch):
         from trainer import staging
+        from trainer.io import SourceReader
+        from trainer.io import source_dir as src_dir
         from trainer.staging import stage_in_tier
-        from trainer.io import SourceReader, source_dir as src_dir
 
         scratch = tmp_path / "scratch"
         tiers = load_tiers(fake_cache)
@@ -395,17 +388,13 @@ class TestStaging:
         after = list(scratch.rglob("*"))
         assert sorted(p.name for p in before) == sorted(p.name for p in after)
 
-    def test_stage_in_copies_only_requested_prefix_and_can_upgrade(
-        self, tmp_path: Path
-    ):
-        from trainer.io import SourceReader, source_dir as src_dir
+    def test_stage_in_copies_only_requested_prefix_and_can_upgrade(self, tmp_path: Path):
+        from trainer.io import SourceReader
+        from trainer.io import source_dir as src_dir
         from trainer.staging import stage_in_tier
 
         cache = tmp_path / "cache"
-        rows = [
-            ([i, i + 100], [i + 200, i + 300, i + 400])
-            for i in range(10)
-        ]
+        rows = [([i, i + 100], [i + 200, i + 300, i + 400]) for i in range(10)]
         _write_source(cache, "source", rows)
         _write_tiers(
             cache,
@@ -440,9 +429,7 @@ class TestStaging:
             for row in range(3):
                 assert np.array_equal(reader.get_row(side, row), rows[row][side == "doc"])
 
-        marker = json.loads(
-            (scratch / "subsets" / "source.staged").read_text()
-        )
+        marker = json.loads((scratch / "subsets" / "source.staged").read_text())
         assert marker["take_rows"] == 3
 
         # A larger tier in the same scratch root must replace, not reuse, the
@@ -450,7 +437,5 @@ class TestStaging:
         stage_in_tier(cache, scratch, tiers["small"])
         upgraded = SourceReader(staged)
         assert upgraded.n_rows == 7
-        upgraded_marker = json.loads(
-            (scratch / "subsets" / "source.staged").read_text()
-        )
+        upgraded_marker = json.loads((scratch / "subsets" / "source.staged").read_text())
         assert upgraded_marker["take_rows"] == 7

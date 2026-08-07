@@ -6,9 +6,9 @@ Mirror of `train.py` (stage 1) with three differences:
   of random init — this is fine-tuning, not pre-training.
 - Forward emits embeddings for query + positive + 7 hard negatives per
   example; loss uses the negative-aware `MatryoshkaLoss(MNR)` path.
-- Default LR an order of magnitude lower than stage 1 (`2e-2` vs `2e-1`)
-  to match plan2's "fine-tuning, not pre-training" framing. User can
-  override.
+- Default LR an order of magnitude lower than stage 1 (`2e-2` vs `2e-1`),
+  reflecting that this is fine-tuning rather than pre-training. Users can
+  override it.
 
 Everything else — DDP `_ddp_env`, save_every / log_every cadence,
 `_build_lr_lambda` linear warmup→decay, atomic safetensors checkpoint —
@@ -53,7 +53,7 @@ class Stage2TrainConfig:
     warmup_ratio: float = 0.05  # shorter warmup than stage 1 — fine-tune
     log_every: int = 20
     save_every: int | None = 1000  # smaller default than stage 1 since stage 2 has
-                                    # ~6K steps total, not ~80K
+    # ~6K steps total, not ~80K
     seed: int = 42
     n_neg_sample: int = 7
     matryoshka_dims: tuple[int, ...] = DEFAULT_MATRYOSHKA_DIMS
@@ -69,7 +69,9 @@ def stage2_train(cfg: Stage2TrainConfig) -> Path:
 
     torch.manual_seed(cfg.seed + rank)
 
-    print(f"[rank{rank}] entered stage2_train (ws={world_size} local_rank={local_rank})", flush=True)
+    print(
+        f"[rank{rank}] entered stage2_train (ws={world_size} local_rank={local_rank})", flush=True
+    )
 
     if world_size > 1:
         # Same DDP init pattern as stage-1 (which is known to work on a100x4).
@@ -100,7 +102,8 @@ def stage2_train(cfg: Stage2TrainConfig) -> Path:
                 flush=True,
             )
         read_training_root = stage_in_stage2_training(
-            cfg.training_root, scratch_root / "stage2" / "training",
+            cfg.training_root,
+            scratch_root / "stage2" / "training",
         )
         local_init = stage_in_file(cfg.init_from, scratch_root / "init")
         print(f"[rank{rank}] stage-in done", flush=True)
@@ -126,8 +129,7 @@ def stage2_train(cfg: Stage2TrainConfig) -> Path:
         total_steps = min(total_steps, cfg.max_steps)
 
     device = torch.device(
-        f"{cfg.device}:{local_rank}" if cfg.device == "cuda" and world_size > 1
-        else cfg.device
+        f"{cfg.device}:{local_rank}" if cfg.device == "cuda" and world_size > 1 else cfg.device
     )
     dtype = getattr(torch, cfg.dtype)
 
@@ -141,9 +143,7 @@ def stage2_train(cfg: Stage2TrainConfig) -> Path:
     model = StaticEmbeddingModel(
         vocab_size=init_ckpt["vocab_size"],
         embedding_dim=init_ckpt["embedding_dim"],
-        ignored_token_ids=(
-            BERT_BOUNDARY_TOKEN_IDS if loader.add_special_tokens else ()
-        ),
+        ignored_token_ids=(BERT_BOUNDARY_TOKEN_IDS if loader.add_special_tokens else ()),
     )
     print(f"[rank{rank}] StaticEmbeddingModel constructed", flush=True)
     with torch.no_grad():
@@ -173,14 +173,13 @@ def stage2_train(cfg: Stage2TrainConfig) -> Path:
         weight_decay=cfg.weight_decay,
     )
     scheduler = torch.optim.lr_scheduler.LambdaLR(
-        optimizer, _build_lr_lambda(total_steps, cfg.warmup_ratio),
+        optimizer,
+        _build_lr_lambda(total_steps, cfg.warmup_ratio),
     )
 
     if is_main:
         cfg.out_dir.mkdir(parents=True, exist_ok=True)
-        _write_config(
-            cfg, steps_per_epoch, world_size, loader.add_special_tokens
-        )
+        _write_config(cfg, steps_per_epoch, world_size, loader.add_special_tokens)
 
     global_step = 0
     last_log = time.time()
@@ -255,10 +254,7 @@ def stage2_train(cfg: Stage2TrainConfig) -> Path:
                 running_loss = 0.0
                 running_count = 0
 
-            if (
-                is_main and cfg.save_every
-                and global_step % cfg.save_every == 0
-            ):
+            if is_main and cfg.save_every and global_step % cfg.save_every == 0:
                 save_checkpoint(model, cfg.out_dir / f"step_{global_step}.safetensors")
 
         if is_main:
@@ -288,15 +284,9 @@ def _write_config(
         "steps_per_epoch_per_rank": steps_per_epoch,
         "world_size": world_size,
         "cache_add_special_tokens": cache_add_special_tokens,
-        "ignored_token_ids": (
-            list(BERT_BOUNDARY_TOKEN_IDS)
-            if cache_add_special_tokens
-            else []
-        ),
+        "ignored_token_ids": (list(BERT_BOUNDARY_TOKEN_IDS) if cache_add_special_tokens else []),
     }
-    (cfg.out_dir / "train_config.json").write_text(
-        json.dumps(data, indent=2, default=str)
-    )
+    (cfg.out_dir / "train_config.json").write_text(json.dumps(data, indent=2, default=str))
 
 
 def _write_source_distribution(out_dir: Path, counter: Counter[str]) -> None:

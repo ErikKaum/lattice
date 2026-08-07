@@ -9,7 +9,6 @@ from pathlib import Path
 from .decontam_eval import evaluate_decontam_beir
 from .quantize import QuantSpec, quantized_table
 
-
 DEPLOYMENT_QUANT_GROUPS: dict[str, tuple[tuple[int, str, int], ...]] = {
     "int8_dim": tuple((8, "dim", dim) for dim in (1024, 512, 256, 128)),
     "int4_dim": tuple((4, "dim", dim) for dim in (1024, 512, 256, 128)),

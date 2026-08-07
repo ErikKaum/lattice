@@ -3,12 +3,13 @@ name = "trainer"
 version = "0.1.0"
 description = "Train the static-embedding model from lattice's pre-tokenized cache."
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.10"
 dependencies = [
     "torch>=2.3",
     "numpy>=1.26",
     "tqdm>=4.66",
-    "sentence-transformers>=3.0",  # eval (NanoBEIREvaluator); also for the
+    "sentence-transformers>=5.4",  # eval (NanoBEIREvaluator); also for the
                                    # final SentenceTransformer save format
                                    # consumed by downstream serving
     "tokenizers>=0.20",            # for inspection / parity tests; training

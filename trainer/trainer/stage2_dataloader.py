@@ -48,7 +48,7 @@ def _negative_seed(base_seed: int, epoch: int, source: str, start: int) -> int:
     launches. Encoding every seed component into SHA-256 gives us a stable
     uint64 while keeping adjacent batches independent.
     """
-    payload = f"{base_seed}:{epoch}:{source}:{start}".encode("utf-8")
+    payload = f"{base_seed}:{epoch}:{source}:{start}".encode()
     return int.from_bytes(hashlib.sha256(payload).digest()[:8], "big")
 
 
@@ -73,19 +73,18 @@ class Stage2Source:
         self.source = str(self.meta["source"])
         add_special_tokens = self.meta.get("add_special_tokens", True)
         if not isinstance(add_special_tokens, bool):
-            raise ValueError(
-                f"{source_dir}: add_special_tokens must be a boolean, "
-                f"got {add_special_tokens!r}"
+            raise TypeError(
+                f"{source_dir}: add_special_tokens must be a boolean, got {add_special_tokens!r}"
             )
         # Stage-2 caches predating this field were all tokenized with
         # `add_special_tokens=True`.
         self.add_special_tokens = add_special_tokens
 
-        self._qt = np.memmap(source_dir / "query_tokens.bin",     dtype="<u2", mode="r")
-        self._qo = np.memmap(source_dir / "query_offsets.bin",    dtype="<u8", mode="r")
-        self._pt = np.memmap(source_dir / "positive_tokens.bin",  dtype="<u2", mode="r")
+        self._qt = np.memmap(source_dir / "query_tokens.bin", dtype="<u2", mode="r")
+        self._qo = np.memmap(source_dir / "query_offsets.bin", dtype="<u8", mode="r")
+        self._pt = np.memmap(source_dir / "positive_tokens.bin", dtype="<u2", mode="r")
         self._po = np.memmap(source_dir / "positive_offsets.bin", dtype="<u8", mode="r")
-        self._nt = np.memmap(source_dir / "negative_tokens.bin",  dtype="<u2", mode="r")
+        self._nt = np.memmap(source_dir / "negative_tokens.bin", dtype="<u2", mode="r")
         self._no = np.memmap(source_dir / "negative_offsets.bin", dtype="<u8", mode="r")
 
         # Sanity: file shapes match meta.
@@ -100,9 +99,13 @@ class Stage2Source:
                 f"entries, expected {self.n_pairs * self.n_neg_per_pair + 1}"
             )
 
-    def pair_window(self, start: int, n: int) -> tuple[
-        np.ndarray, np.ndarray,    # q flat tokens, q local offsets (n,)
-        np.ndarray, np.ndarray,    # p flat tokens, p local offsets (n,)
+    def pair_window(
+        self, start: int, n: int
+    ) -> tuple[
+        np.ndarray,
+        np.ndarray,  # q flat tokens, q local offsets (n,)
+        np.ndarray,
+        np.ndarray,  # p flat tokens, p local offsets (n,)
     ]:
         """Slice queries + positives for a contiguous window of `n` pairs.
         Returns concatenated flat tokens and local offsets (rebased to 0)
@@ -120,7 +123,11 @@ class Stage2Source:
         return q_flat, q_local, p_flat, p_local
 
     def sample_negatives(
-        self, start: int, n: int, k: int, rng: np.random.Generator,
+        self,
+        start: int,
+        n: int,
+        k: int,
+        rng: np.random.Generator,
     ) -> tuple[np.ndarray, np.ndarray]:
         """For each of `n` pairs starting at `start`, sample `k` of the
         50 stored negatives. Returns `(flat_tokens, local_offsets)` with
@@ -190,21 +197,16 @@ class Stage2Dataloader:
         self.world_size = world_size
 
         source_dirs = sorted(
-            d for d in training_root.iterdir()
-            if d.is_dir() and (d / "meta.json").exists()
+            d for d in training_root.iterdir() if d.is_dir() and (d / "meta.json").exists()
         )
         if not source_dirs:
             raise ValueError(f"no tokenized sources under {training_root}")
         self.sources: list[Stage2Source] = [Stage2Source(d) for d in source_dirs]
         token_policies = {source.add_special_tokens for source in self.sources}
         if len(token_policies) != 1:
-            by_source = {
-                source.source: source.add_special_tokens
-                for source in self.sources
-            }
+            by_source = {source.source: source.add_special_tokens for source in self.sources}
             raise ValueError(
-                "stage-2 training data mixes add_special_tokens policies: "
-                f"{by_source}"
+                f"stage-2 training data mixes add_special_tokens policies: {by_source}"
             )
         self.add_special_tokens = token_policies.pop()
 
@@ -250,13 +252,15 @@ class Stage2Dataloader:
             yield self._make_batch(src, start, n, epoch)
 
     def _make_batch(
-        self, src: Stage2Source, start: int, n: int, epoch: int,
+        self,
+        src: Stage2Source,
+        start: int,
+        n: int,
+        epoch: int,
     ) -> Stage2Batch:
         # Independent RNG per (epoch, source, start) so negative sampling is
         # reproducible and different each epoch.
-        neg_rng = np.random.default_rng(
-            _negative_seed(self.seed, epoch, src.source, start)
-        )
+        neg_rng = np.random.default_rng(_negative_seed(self.seed, epoch, src.source, start))
         q_flat, q_off, p_flat, p_off = src.pair_window(start, n)
         n_flat, n_off = src.sample_negatives(start, n, self.n_neg_sample, neg_rng)
 

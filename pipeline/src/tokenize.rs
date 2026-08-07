@@ -7,7 +7,7 @@
 //!   doc_offsets.bin    — same
 //!   meta.json          — n_rows, total_{query,doc}_tokens, tokenizer info
 //!
-//! No truncation, no padding, per `plan.md`. Special tokens (`[CLS]`/`[SEP]`)
+//! No truncation or padding. Special tokens (`[CLS]`/`[SEP]`)
 //! are not added: `sentence-transformers`'s `StaticEmbedding.tokenize` calls
 //! the tokenizer with `add_special_tokens=false`.
 //!

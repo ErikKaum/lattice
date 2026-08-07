@@ -1,4 +1,4 @@
-"""Stage-2 training-data tokenizer (eval_plan.md Sequencing §3).
+"""Stage-2 training-data tokenizer.
 
 Input: `lightonai/embeddings-fine-tuning` (queries / documents / scores
 configs, per source) + the per-source `stage2_split.SplitManifest`.
@@ -29,7 +29,7 @@ its tokens written 30 times. We tokenize each unique doc *once* though
 — deduplication happens at the encode step, not the emit step — so the
 extra disk is just bytes, not extra CPU.
 
-**Disjointness assertion** (eval_plan.md §3): we assert at the end of
+**Disjointness assertion**: we assert at the end of
 each source that the set of query_ids actually emitted is a subset of
 the training-split query_ids and has zero intersection with the eval
 query_ids. The filter already enforces this by construction; the
@@ -48,10 +48,8 @@ import numpy as np
 
 from .stage2_split import DATASET, SOURCES, load_split
 
-
 N_NEGATIVES_PER_PAIR = 50
-NV_THRESHOLD = 0.95  # LightOn's example-code default. plan2 quoted 0.99;
-                     # user picked 0.95 after seeing both.
+NV_THRESHOLD = 0.95  # LightOn's example-code default.
 ADD_SPECIAL_TOKENS = False
 
 
@@ -130,9 +128,7 @@ def _filter_pairs(
 
         # Collect (score, doc_id) pairs that pass the threshold.
         eligible: list[tuple[float, int]] = [
-            (float(s), int(d))
-            for d, s in zip(document_ids[1:], scores[1:])
-            if float(s) < threshold
+            (float(s), int(d)) for d, s in zip(document_ids[1:], scores[1:]) if float(s) < threshold
         ]
         if len(eligible) < n_neg:
             n_dropped += 1
@@ -186,7 +182,9 @@ def _resolve_doc_rows(
 
 
 def _tokenize_and_pack(
-    tokenizer, texts: list[str], chunk_size: int = 50_000,
+    tokenizer,
+    texts: list[str],
+    chunk_size: int = 50_000,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Encode `texts` and pack into `(concat, offsets)` chunk-by-chunk,
     releasing each chunk's `Encoding` objects before the next chunk runs.
@@ -224,10 +222,7 @@ def _tokenize_and_pack(
             offsets_list.append(last)
         del ids_lists
 
-    concat = (
-        np.concatenate(pack_chunks) if pack_chunks
-        else np.empty(0, dtype=np.uint16)
-    )
+    concat = np.concatenate(pack_chunks) if pack_chunks else np.empty(0, dtype=np.uint16)
     offsets = np.array(offsets_list, dtype=np.uint64)
     return concat, offsets
 
@@ -312,8 +307,7 @@ def tokenize_stage2_source(
     if not emitted_qids.issubset(train_qids):
         bad = emitted_qids - train_qids
         raise AssertionError(
-            f"{source}: {len(bad)} emitted qids not in train_qids "
-            f"(first few: {sorted(bad)[:5]})"
+            f"{source}: {len(bad)} emitted qids not in train_qids (first few: {sorted(bad)[:5]})"
         )
 
     # ---- 3. Load texts ----------------------------------------------------
@@ -482,16 +476,13 @@ def tokenize_all(
         existing = json.loads(meta_path.read_text())
         policy = existing.get("add_special_tokens", True)
         if not isinstance(policy, bool):
-            raise ValueError(
-                f"{meta_path}: add_special_tokens must be boolean, got {policy!r}"
-            )
+            raise TypeError(f"{meta_path}: add_special_tokens must be boolean, got {policy!r}")
         existing_policies[source] = policy
 
     distinct_policies = set(existing_policies.values())
     if len(distinct_policies) > 1:
         raise RuntimeError(
-            "existing stage-2 sources mix add_special_tokens policies: "
-            f"{existing_policies}"
+            f"existing stage-2 sources mix add_special_tokens policies: {existing_policies}"
         )
     if distinct_policies == {True} and missing_sources:
         raise RuntimeError(
@@ -507,8 +498,7 @@ def tokenize_all(
             existing = json.loads(meta_path.read_text())
             existing_policy = existing.get("add_special_tokens", True)
             policy_note = (
-                "legacy cache; trainer compatibility mode will ignore "
-                "[CLS]/[SEP]"
+                "legacy cache; trainer compatibility mode will ignore [CLS]/[SEP]"
                 if existing_policy != ADD_SPECIAL_TOKENS
                 else "canonical token policy"
             )
@@ -519,19 +509,18 @@ def tokenize_all(
             summary[source] = existing
             continue
         meta = tokenize_stage2_source(
-            source, splits_dir, tokenizer_path, out_root,
-            nv_threshold=nv_threshold, n_neg=n_neg,
+            source,
+            splits_dir,
+            tokenizer_path,
+            out_root,
+            nv_threshold=nv_threshold,
+            n_neg=n_neg,
         )
         summary[source] = dataclasses.asdict(meta)
 
-    resolved_policies = {
-        meta.get("add_special_tokens", True) for meta in summary.values()
-    }
+    resolved_policies = {meta.get("add_special_tokens", True) for meta in summary.values()}
     if len(resolved_policies) != 1:
-        raise RuntimeError(
-            "stage-2 output mixes add_special_tokens policies: "
-            f"{resolved_policies}"
-        )
+        raise RuntimeError(f"stage-2 output mixes add_special_tokens policies: {resolved_policies}")
     resolved_policy = resolved_policies.pop()
 
     _atomic_write_json(

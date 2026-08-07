@@ -25,7 +25,6 @@ from typing import Literal
 
 import numpy as np
 
-
 Side = Literal["query", "doc"]
 SIDES: tuple[Side, ...] = ("query", "doc")
 
@@ -42,13 +41,12 @@ class SourceMeta:
     add_special_tokens: bool
 
     @classmethod
-    def load(cls, path: Path) -> "SourceMeta":
+    def load(cls, path: Path) -> SourceMeta:
         data = json.loads(path.read_text())
         add_special_tokens = data.get("add_special_tokens", True)
         if not isinstance(add_special_tokens, bool):
-            raise ValueError(
-                f"{path}: add_special_tokens must be a boolean, "
-                f"got {add_special_tokens!r}"
+            raise TypeError(
+                f"{path}: add_special_tokens must be a boolean, got {add_special_tokens!r}"
             )
         return cls(
             source=data["source"],
@@ -79,9 +77,7 @@ class SourceReader:
         self._tokens: dict[Side, np.memmap] = {}
         self._offsets: dict[Side, np.memmap] = {}
         for side in SIDES:
-            self._tokens[side] = np.memmap(
-                source_dir / f"{side}_tokens.bin", dtype="<u2", mode="r"
-            )
+            self._tokens[side] = np.memmap(source_dir / f"{side}_tokens.bin", dtype="<u2", mode="r")
             self._offsets[side] = np.memmap(
                 source_dir / f"{side}_offsets.bin", dtype="<u8", mode="r"
             )
@@ -118,9 +114,7 @@ class SourceReader:
         end = int(offsets[i + 1])
         return self._tokens[side][start:end]
 
-    def get_batch(
-        self, side: Side, start: int, n: int
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def get_batch(self, side: Side, start: int, n: int) -> tuple[np.ndarray, np.ndarray]:
         """Return `(tokens_flat, local_offsets)` for rows `[start, start+n)`.
 
         `tokens_flat` is the concatenated token IDs (u16) for all rows in the
@@ -160,8 +154,7 @@ def load_tiers(cache_root: Path) -> dict[str, Tier]:
     out: dict[str, Tier] = {}
     for t in raw:
         per_source = tuple(
-            TierSource(source=s["source"], take_rows=int(s["take_rows"]))
-            for s in t["per_source"]
+            TierSource(source=s["source"], take_rows=int(s["take_rows"])) for s in t["per_source"]
         )
         out[t["tier"]] = Tier(
             name=t["tier"],
@@ -176,9 +169,7 @@ def source_dir(cache_root: Path, source: str) -> Path:
     return cache_root / "subsets" / source
 
 
-def open_tier_sources(
-    cache_root: Path, tier: Tier
-) -> list[tuple[SourceReader, int]]:
+def open_tier_sources(cache_root: Path, tier: Tier) -> list[tuple[SourceReader, int]]:
     """Open every source mentioned in `tier` with `take_rows > 0`. Each returned
     tuple is `(reader, usable_rows)` — the tier's prefix length within that
     source. The reader may carry more rows on disk (if a larger tier was

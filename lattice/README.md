@@ -29,6 +29,8 @@ uv run slicer slice \
 
 ## Build
 
+Requires Rust 1.89 or newer.
+
 ```bash
 cd ../lattice
 cargo build --release --bins

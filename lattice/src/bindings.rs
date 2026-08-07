@@ -1,3 +1,8 @@
+// PyO3 0.22's generated wrappers predate Rust 2024's stricter unsafe lint and
+// contain conversions that Clippy cannot see through. The generated calls are
+// audited by PyO3; this module contains no handwritten unsafe code.
+#![allow(unsafe_op_in_unsafe_fn, clippy::useless_conversion)]
+
 //! PyO3 bindings — feature-gated by `python`.
 //!
 //! Surface mirrors the Rust API. Two classes:

@@ -22,14 +22,29 @@ from pathlib import Path
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--limit", type=int, default=None,
-                    help="max articles to emit (default: full dataset)")
-    ap.add_argument("--out", type=Path, required=True,
-                    help="output .txt path (one article per line)")
-    ap.add_argument("--config", default="20231101.en",
-                    help="HF wikimedia/wikipedia config (default: 20231101.en)")
-    ap.add_argument("--min-chars", type=int, default=0,
-                    help="skip articles shorter than this (default: 0 = keep all)")
+    ap.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="max articles to emit (default: full dataset)",
+    )
+    ap.add_argument(
+        "--out",
+        type=Path,
+        required=True,
+        help="output .txt path (one article per line)",
+    )
+    ap.add_argument(
+        "--config",
+        default="20231101.en",
+        help="HF wikimedia/wikipedia config (default: 20231101.en)",
+    )
+    ap.add_argument(
+        "--min-chars",
+        type=int,
+        default=0,
+        help="skip articles shorter than this (default: 0 = keep all)",
+    )
     args = ap.parse_args()
 
     from datasets import load_dataset
@@ -37,7 +52,10 @@ def main() -> None:
     args.out.parent.mkdir(parents=True, exist_ok=True)
 
     ds = load_dataset(
-        "wikimedia/wikipedia", args.config, split="train", streaming=True,
+        "wikimedia/wikipedia",
+        args.config,
+        split="train",
+        streaming=True,
     )
 
     start = time.time()
@@ -60,14 +78,14 @@ def main() -> None:
             if n_written % 50_000 == 0:
                 elapsed = time.time() - start
                 print(
-                    f"  {n_written:>9,} articles  ({n_bytes/1e6:.1f} MB)  "
-                    f"{elapsed:.1f}s",
-                    file=sys.stderr, flush=True,
+                    f"  {n_written:>9,} articles  ({n_bytes / 1e6:.1f} MB)  {elapsed:.1f}s",
+                    file=sys.stderr,
+                    flush=True,
                 )
 
     elapsed = time.time() - start
     print(
-        f"wrote {args.out}  ({n_written:,} articles, {n_bytes/1e6:.1f} MB, "
+        f"wrote {args.out}  ({n_written:,} articles, {n_bytes / 1e6:.1f} MB, "
         f"skipped {n_seen - n_written}, {elapsed:.1f}s)",
         file=sys.stderr,
     )

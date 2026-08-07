@@ -20,7 +20,6 @@ Run: `uv run python scripts/weight_variance.py <checkpoint.safetensors>`
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -29,9 +28,10 @@ from safetensors import safe_open
 
 def load_weight(path: Path) -> np.ndarray:
     with safe_open(str(path), framework="np") as f:
-        if "embedding.weight" not in f.keys():
+        tensor_names = list(f.keys())
+        if "embedding.weight" not in tensor_names:
             raise SystemExit(
-                f"{path} has no 'embedding.weight' tensor; got {list(f.keys())}"
+                f"{path} has no 'embedding.weight' tensor; got {tensor_names}"
             )
         return f.get_tensor("embedding.weight")
 
@@ -98,7 +98,9 @@ def main() -> None:
     summarize("L2 norm", row_l2[nonzero_rows])
     print()
 
-    print("=== Per-DIM stats (one number per output column, length", W.shape[1], ") ===")
+    print(
+        "=== Per-DIM stats (one number per output column, length", W.shape[1], ") ==="
+    )
     summarize("max-abs", col_max)
     summarize("std", col_std)
     summarize("L2 norm", col_l2)
@@ -110,8 +112,9 @@ def main() -> None:
     print("=== Asymmetry (max-abs dynamic range) ===")
     print(f"  per-row max-abs range: {row_dyn:.1f}×")
     print(f"  per-dim max-abs range: {col_dyn:.1f}×")
-    print(f"  ratio: {row_dyn / col_dyn:.1f}×  "
-          f"(per-row is this much wider than per-dim)")
+    print(
+        f"  ratio: {row_dyn / col_dyn:.1f}×  (per-row is this much wider than per-dim)"
+    )
     print()
 
     print("=== Silent-row counts under per-dim quantization ===")
