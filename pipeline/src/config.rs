@@ -39,7 +39,8 @@ pub const CACHE_ROOT: &str = "./cache";
 
 /// Chunk size for the prefix-stable interleaved schedule (see `partition.rs`).
 /// Smaller → finer-grained diversity at small tiers; larger → fewer stream
-/// switches and less open-stream memory pressure. 10K matches audacity.
+/// switches and less open-stream memory pressure. 10K matches the previously
+/// validated pipeline configuration.
 pub const INTERLEAVE_CHUNK: u64 = 10_000;
 
 // ---- Tiers -----------------------------------------------------------------

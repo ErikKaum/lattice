@@ -4,7 +4,7 @@
 # `tokenizer.json`, etc — produced locally by the Rust `pipeline tokenize`
 # stage and uploaded). The trainer stages source binaries from the bucket
 # into /app/scratch at startup so the dataloader mmaps from local disk, not
-# FUSE — the audacity project wedged a bucket with concurrent random reads
+# FUSE — an earlier project wedged a bucket with concurrent random reads
 # over FUSE, and this codepath is the fix.
 #
 # Build:  docker build -t <registry>/lattice-trainer:latest .
@@ -36,13 +36,13 @@
 #
 # 3. **Pass `--scratch /app/scratch` on every run.** The `subsets/` dirs are
 #    multi-GB each; sparse mmap reads of those over a FUSE bucket mount
-#    serialize under DDP contention (audacity wedged a bucket with three
-#    concurrent doc-side shards). Local scratch dodges this entirely.
+#    serialize under DDP contention (an earlier pipeline wedged a bucket with
+#    three concurrent doc-side shards). Local scratch dodges this entirely.
 #    Checkpoints are small (~125 MB each) and aligned-write, so they go
 #    straight back to the bucket via `--out-dir /app/cache/runs/...`.
 
-# CUDA 12.6 matches what the HF Jobs A100 fleet's driver supports per
-# audacity's measurements. -runtime (not -devel) — we don't compile CUDA
+# CUDA 12.6 matches what the HF Jobs A100 fleet's driver supports based on
+# earlier measurements. -runtime (not -devel) — we don't compile CUDA
 # kernels here.
 #
 # `--platform linux/amd64` is explicit so the image builds correctly when

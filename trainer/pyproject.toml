@@ -42,5 +42,16 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["trainer"]
 
+[tool.hatch.build.targets.sdist]
+include = [
+    "/.dockerignore",
+    "/Dockerfile",
+    "/README.md",
+    "/pyproject.toml",
+    "/tests",
+    "/trainer",
+    "/uv.lock",
+]
+
 [tool.ruff]
 line-length = 100

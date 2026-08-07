@@ -1,7 +1,7 @@
 //! Decide the global row order across source subsets — prefix-stable so that
 //! `xs ⊂ small ⊂ medium ⊂ full` holds as row sets, not just sizes.
 //!
-//! Algorithm (lifted from the audacity pipeline, lightly adapted): chunked
+//! Algorithm (adapted from an earlier pipeline): chunked
 //! proportional round-robin. At each step the schedule picks the source whose
 //! `taken / size` ratio is currently smallest (ties broken by source index)
 //! and advances it by up to `INTERLEAVE_CHUNK` rows. Two targets share the

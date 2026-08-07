@@ -25,8 +25,17 @@ The script expects these Modal secrets:
   `AWS_SECRET_ACCESS_KEY`, and `AWS_REGION`.
 
 Secret values are configured in Modal and are never stored in this repository.
-The bucket/account names and the exact validated trainer image digest are
-constants near the top of the script.
+The exact validated trainer image digest is a constant near the top of the
+script. Configure the Hugging Face account and bucket locally before running
+the launcher:
+
+```bash
+export LATTICE_HF_NAMESPACE=your-hf-username
+export LATTICE_HF_BUCKET=your-bucket-name
+```
+
+These values are used to derive both the native Hugging Face bucket URI and its
+S3-compatible endpoint; they are not stored in the repository.
 
 First prove read/write compatibility without allocating a GPU:
 

@@ -5,7 +5,7 @@ description = "Slice + quantize the lattice-retrieval static embedding model int
 readme = "README.md"
 license = "MIT"
 authors = [
-    { name = "erikkaum", email = "erik.kaum@gmail.com" }
+    { name = "erikkaum" }
 ]
 requires-python = ">=3.12"
 dependencies = [

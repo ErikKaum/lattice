@@ -33,8 +33,8 @@
 # Notes:
 # - CPU-only flavor is correct: tokenize never touches a GPU.
 # - No `--scratch` needed: tokenize's writes are append-sequential, which
-#   bucket FUSE handles at ~300 MB/s sustained (per audacity's
-#   measurements). Sparse random reads — the audacity gotcha — don't
+#   bucket FUSE handles at ~300 MB/s sustained in earlier measurements.
+#   Sparse random reads — the important gotcha here — don't
 #   happen during tokenize.
 
 # ----- Stage 1: build the Rust binary for Linux x86_64 -----------------

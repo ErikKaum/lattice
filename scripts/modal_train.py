@@ -11,6 +11,11 @@ Required Modal secrets:
 * ``hf-bucket-s3`` with ``AWS_ACCESS_KEY_ID``, ``AWS_SECRET_ACCESS_KEY``,
   and ``AWS_REGION`` (checkpoint uploads)
 
+Required local environment variables:
+
+* ``LATTICE_HF_NAMESPACE``: Hugging Face user or organization owning the bucket
+* ``LATTICE_HF_BUCKET``: storage bucket name
+
 Run the storage compatibility probe before allocating GPUs::
 
     modal run scripts/modal_train.py::bucket_smoke
@@ -39,9 +44,15 @@ TRAINER_IMAGE = (
     "erikkaum/lattice-trainer@"
     "sha256:ba8c051c4aca9a2fae63b5b6a386931a101e6a767eab841e7d21df58e20da5d6"
 )
-HF_BUCKET = "hf://buckets/erikkaum/training-cache-static"
-HF_S3_ENDPOINT = "https://s3.hf.co/erikkaum"
-HF_S3_BUCKET = "training-cache-static"
+HF_NAMESPACE = os.environ.get("LATTICE_HF_NAMESPACE")
+HF_BUCKET_NAME = os.environ.get("LATTICE_HF_BUCKET")
+if not HF_NAMESPACE or not HF_BUCKET_NAME:
+    raise RuntimeError(
+        "set LATTICE_HF_NAMESPACE and LATTICE_HF_BUCKET before running this launcher"
+    )
+HF_BUCKET = f"hf://buckets/{HF_NAMESPACE}/{HF_BUCKET_NAME}"
+HF_S3_ENDPOINT = f"https://s3.hf.co/{HF_NAMESPACE}"
+HF_S3_BUCKET = HF_BUCKET_NAME
 FULL_RUN_NAME = "tokenizer_full_20260803_modal_a100x4_r1"
 STAGE2_RUN_NAME = "tokenizer_stage2_10ep_20260803_modal_a100x4_r1"
 
@@ -457,9 +468,7 @@ def eval_stage1_decontam() -> str:
     return _eval_decontam(
         run_name=FULL_RUN_NAME,
         stage="stage1",
-        checkpoint_remote=(
-            f"{HF_BUCKET}/runs/{FULL_RUN_NAME}/stage1/final.safetensors"
-        ),
+        checkpoint_remote=(f"{HF_BUCKET}/runs/{FULL_RUN_NAME}/stage1/final.safetensors"),
     )
 
 
@@ -476,9 +485,7 @@ def eval_stage2_decontam() -> str:
     return _eval_decontam(
         run_name=STAGE2_RUN_NAME,
         stage="stage2",
-        checkpoint_remote=(
-            f"{HF_BUCKET}/runs/{STAGE2_RUN_NAME}/stage2/final.safetensors"
-        ),
+        checkpoint_remote=(f"{HF_BUCKET}/runs/{STAGE2_RUN_NAME}/stage2/final.safetensors"),
     )
 
 
@@ -689,9 +696,7 @@ def _eval_decontam(
         _run_aws(
             "s3",
             "cp",
-            (
-                f"s3://{HF_S3_BUCKET}/runs/{run_name}/{stage}/decontam/decontam_beir.partial.json"
-            ),
+            (f"s3://{HF_S3_BUCKET}/runs/{run_name}/{stage}/decontam/decontam_beir.partial.json"),
             str(partial_path),
         )
         print(f"restored resumable decontam progress from {remote_out}", flush=True)

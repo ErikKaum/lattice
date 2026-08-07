@@ -3,7 +3,7 @@ local scratch storage before training.
 
 Why this exists: on HF Jobs we mount the data bucket at `/app/cache` via FUSE.
 Sparse mmap reads of multi-GB `*_tokens.bin` from a bucket-mounted FUSE
-serialize catastrophically under concurrent access — the audacity project
+serialize catastrophically under concurrent access — an earlier pipeline
 wedged a bucket for an hour with three concurrent doc-side shards doing
 random reads. The fix is the same here: copy the binaries once to local
 disk at startup, then mmap from there.
@@ -11,11 +11,11 @@ disk at startup, then mmap from there.
 Concurrent-safe across DDP ranks sharing one scratch dir. Uses
 `fcntl.flock` + a per-source `.staged` sentinel. Only the winner of the
 lock race pulls bytes from the bucket; the other ranks find the sentinel
-and reuse the staged copy. This matches the audacity pattern.
+and reuse the staged copy. This matches the previously validated pattern.
 
 The bucket is still the canonical home for checkpoints — those are small
 (~125 MB each) and infrequent, and aligned writes to bucket FUSE are
-well-behaved (~300 MB/s in audacity's measurements). So **reads stage,
+well-behaved (~300 MB/s in earlier measurements). So **reads stage,
 writes don't**.
 """
 
