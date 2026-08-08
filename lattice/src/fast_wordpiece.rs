@@ -1,20 +1,23 @@
 //! A purpose-built, IDs-only WordPiece tokenizer.
 //!
-//! `Tokenizer::encode`/`encode_batch` build full `Encoding` objects (offsets,
-//! alignment, masks, type IDs, special tokens) of which `LatticeTokenizer`
-//! uses only `get_ids()`. This module implements just the forward text -> IDs
-//! mapping for the BertNormalizer + BertPreTokenizer + WordPiece pipeline used
-//! by lattice-retrieval, producing token IDs identical to the `tokenizers`
-//! crate (verified by the parity test below).
+//! The HF `tokenizers` crate's `encode`/`encode_batch` build full `Encoding`
+//! objects (offsets, alignment, masks, type IDs, special tokens) of which
+//! `LatticeTokenizer` uses only `get_ids()`. This module implements just the
+//! forward text -> IDs mapping for the BertNormalizer + BertPreTokenizer +
+//! WordPiece pipeline lattice-retrieval ships — the only pipeline any shipped
+//! artifact uses, since every variant is sliced from the same base model —
+//! parsing `tokenizer.json` directly so the `tokenizers` crate (and its
+//! native `onig` dependency) isn't needed at runtime at all. It's kept as a
+//! dev-dependency purely to check parity in tests.
 //!
 //! Ported from model2vec-rs's `fast_wordpiece` module (itself a port of
-//! go-potion's WordPiece tokenizer). Non-WordPiece pipelines return `None`
-//! from [`FastWordPiece::from_tokenizer`] so the caller falls back to the
-//! crate.
+//! go-potion's WordPiece tokenizer).
 
 use std::collections::HashMap;
+use std::fs;
+use std::path::Path;
 
-use tokenizers::Tokenizer;
+use anyhow::{Context, Result, bail};
 use unicode_categories::UnicodeCategories;
 use unicode_normalization::UnicodeNormalization;
 
@@ -36,24 +39,36 @@ pub(crate) struct FastWordPiece {
 }
 
 impl FastWordPiece {
-    /// Build from a loaded tokenizer, or `None` if it is not the
-    /// BertNormalizer + BertPreTokenizer + WordPiece pipeline.
-    pub(crate) fn from_tokenizer(tok: &Tokenizer) -> Option<FastWordPiece> {
-        let json: serde_json::Value = serde_json::from_str(&tok.to_string(false).ok()?).ok()?;
+    /// Load and parse `tokenizer.json` at `path`. Errors if it isn't the
+    /// BertNormalizer + BertPreTokenizer + WordPiece pipeline — lattice-
+    /// retrieval never ships anything else, so there is no fallback pipeline
+    /// to degrade to.
+    pub(crate) fn load(path: &Path) -> Result<FastWordPiece> {
+        let raw = fs::read_to_string(path)
+            .with_context(|| format!("reading tokenizer json from {}", path.display()))?;
+        let json: serde_json::Value = serde_json::from_str(&raw)
+            .with_context(|| format!("parsing tokenizer json from {}", path.display()))?;
+        Self::from_json(&json).with_context(|| {
+            format!(
+                "{} is not a BertNormalizer + BertPreTokenizer + WordPiece pipeline",
+                path.display()
+            )
+        })
+    }
 
-        // Require the exact pipeline; anything else falls back to the crate.
-        let model = json.get("model")?;
-        if model.get("type")?.as_str()? != "WordPiece" {
-            return None;
+    fn from_json(json: &serde_json::Value) -> Result<FastWordPiece> {
+        let model = json.get("model").context("missing `model`")?;
+        if model.get("type").and_then(|t| t.as_str()) != Some("WordPiece") {
+            bail!("model.type is not \"WordPiece\"");
         }
         if json.get("pre_tokenizer").and_then(|p| p.get("type")).and_then(|t| t.as_str())
             != Some("BertPreTokenizer")
         {
-            return None;
+            bail!("pre_tokenizer.type is not \"BertPreTokenizer\"");
         }
-        let norm = json.get("normalizer")?;
+        let norm = json.get("normalizer").context("missing `normalizer`")?;
         if norm.get("type").and_then(|t| t.as_str()) != Some("BertNormalizer") {
-            return None;
+            bail!("normalizer.type is not \"BertNormalizer\"");
         }
         let lowercase = norm.get("lowercase").and_then(|v| v.as_bool()).unwrap_or(true);
         let clean_text = norm.get("clean_text").and_then(|v| v.as_bool()).unwrap_or(true);
@@ -63,8 +78,12 @@ impl FastWordPiece {
         let strip_accents =
             norm.get("strip_accents").and_then(|v| v.as_bool()).unwrap_or(lowercase);
 
-        // Vocab from the tokenizer (avoids re-parsing ~30k JSON entries).
-        let vocab = tok.get_vocab(true);
+        // model.vocab is the flat token -> id map; for lattice-retrieval's
+        // tokenizer.json every added special token (PAD/UNK/CLS/SEP/MASK) is
+        // already present in it, so no separate `added_tokens` merge is needed.
+        let vocab: HashMap<String, u32> =
+            serde_json::from_value(model.get("vocab").context("missing model.vocab")?.clone())
+                .context("model.vocab is not a string -> id map")?;
         let unk_token = model.get("unk_token").and_then(|v| v.as_str()).unwrap_or("[UNK]");
         let unk_id = vocab.get(unk_token).copied();
         let continuing_subword_prefix = model
@@ -84,7 +103,7 @@ impl FastWordPiece {
             }
         }
 
-        Some(FastWordPiece {
+        Ok(FastWordPiece {
             vocab,
             single_byte,
             unk_id,
@@ -359,6 +378,7 @@ fn is_chinese_char(c: char) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokenizers::Tokenizer;
 
     fn corpus() -> Vec<&'static str> {
         vec![
@@ -386,7 +406,7 @@ mod tests {
     #[ignore = "requires a local lattice-retrieval tokenizer under data/ (see README: slicer slice)"]
     fn fast_matches_crate() {
         let tok = Tokenizer::from_file(FIXTURE).expect("load fixture tokenizer");
-        let ft = FastWordPiece::from_tokenizer(&tok).expect("fixture is a WordPiece pipeline");
+        let ft = FastWordPiece::load(Path::new(FIXTURE)).expect("fixture is a WordPiece pipeline");
 
         for text in corpus() {
             let want: Vec<u32> = tok

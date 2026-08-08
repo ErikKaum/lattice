@@ -21,7 +21,6 @@ mimalloc = { version = "0.1.52", default-features = false }
 num_cpus = "1.17.0"
 rayon = "1.12.0"
 safetensors = "0.7.0"
-tokenizers = { version = "0.23.1", default-features = false, features = ["onig"] }
 bytemuck = "1"
 wide = "1.4.0"
 unicode-normalization = "0.1"
@@ -31,6 +30,11 @@ serde_json = "1.0"
 # pyo3 + numpy when you're just building the bench bin.
 pyo3 = { version = "0.22", features = ["extension-module"], optional = true }
 numpy = { version = "0.22", optional = true }
+
+[dev-dependencies]
+# Reference implementation for the fast_wordpiece parity test only — not
+# linked into the release binary or the Python extension.
+tokenizers = { version = "0.23.1", default-features = false, features = ["onig"] }
 
 [features]
 default = []

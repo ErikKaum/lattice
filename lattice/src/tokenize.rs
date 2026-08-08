@@ -1,67 +1,38 @@
-//! Thin wrapper over the HF `tokenizers` crate, with a fast IDs-only path
-//! for the WordPiece pipeline lattice-retrieval actually ships.
-//!
-//! `Tokenizer::encode`/`encode_batch` build full `Encoding` objects (offsets,
-//! alignment, masks, type IDs, special tokens) of which we use only
-//! `get_ids()`. [`fast_wordpiece::FastWordPiece`] skips that machinery for
-//! the BertNormalizer + BertPreTokenizer + WordPiece pipeline — the only
-//! pipeline lattice-retrieval's slicer artifacts use — and falls back to the
-//! crate for anything else, so correctness on non-WordPiece tokenizers is
-//! unaffected.
+//! IDs-only WordPiece tokenizer for lattice-retrieval's BertNormalizer +
+//! BertPreTokenizer + WordPiece pipeline. See [`fast_wordpiece`] for why the
+//! HF `tokenizers` crate isn't a runtime dependency at all — it's kept as a
+//! dev-dependency purely for the parity test.
 
 use std::path::Path;
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::Result;
 use rayon::prelude::*;
-use tokenizers::Tokenizer;
 
 use crate::fast_wordpiece::FastWordPiece;
 
 pub struct LatticeTokenizer {
-    inner: Tokenizer,
-    fast: Option<FastWordPiece>,
+    fast: FastWordPiece,
 }
 
 impl LatticeTokenizer {
     pub fn load(path: &Path) -> Result<Self> {
-        let inner = Tokenizer::from_file(path)
-            .map_err(|e| anyhow!("{}", e))
-            .with_context(|| format!("loading tokenizer from {}", path.display()))?;
-        let fast = FastWordPiece::from_tokenizer(&inner);
-        Ok(Self { inner, fast })
+        Ok(Self { fast: FastWordPiece::load(path)? })
     }
 
     /// Encode one document. **Special tokens (`[CLS]`/`[SEP]`) are NOT
     /// added** — this matches what `sentence-transformers`'
     /// `StaticEmbedding` feeds the `EmbeddingBag`. Verified by the parity
-    /// test against ST. (The tokenizer.json's TemplateProcessing
-    /// post-processor still defines them; we just bypass it via
-    /// `add_special_tokens=false`.)
+    /// test against ST.
     pub fn encode(&self, text: &str) -> Result<Vec<u32>> {
-        if let Some(fast) = &self.fast {
-            return Ok(fast.encode_ids(text));
-        }
-        let enc = self
-            .inner
-            .encode(text, false)
-            .map_err(|e| anyhow!("tokenizer encode: {}", e))?;
-        Ok(enc.get_ids().to_vec())
+        Ok(self.fast.encode_ids(text))
     }
 
-    /// Encode a batch. On the fast path we parallelize across texts with
-    /// rayon ourselves (the crate's own `encode_batch` parallelizes
-    /// internally, but `FastWordPiece::encode_ids` is single-threaded), so
-    /// call this from a sequential context — calling it from within another
-    /// rayon scope would nest two parallel iterations.
+    /// Encode a batch, parallelized across texts with rayon (`FastWordPiece`
+    /// is single-threaded per call). Call from a sequential context —
+    /// calling from within another rayon scope would nest two parallel
+    /// iterations.
     pub fn encode_batch(&self, texts: Vec<String>) -> Result<Vec<Vec<u32>>> {
-        if let Some(fast) = &self.fast {
-            return Ok(texts.par_iter().map(|t| fast.encode_ids(t)).collect());
-        }
-        let encs = self
-            .inner
-            .encode_batch(texts, false)
-            .map_err(|e| anyhow!("tokenizer encode_batch: {}", e))?;
-        Ok(encs.iter().map(|e| e.get_ids().to_vec()).collect())
+        Ok(texts.par_iter().map(|t| self.fast.encode_ids(t)).collect())
     }
 }
 
