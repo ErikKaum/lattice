@@ -40,7 +40,7 @@ impl LatticeTokenizer {
 mod tests {
     use super::*;
 
-    const FIXTURE: &str = "../data/int4-dim-512-artifact/tokenizer.json";
+    const FIXTURE: &str = "../data/int4-dim-1024/tokenizer.json";
 
     #[test]
     #[ignore = "requires a local bert-base-uncased tokenizer under data/"]
