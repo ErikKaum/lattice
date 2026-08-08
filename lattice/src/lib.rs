@@ -8,6 +8,7 @@ use std::path::Path;
 
 use anyhow::{Result, bail};
 
+mod fast_wordpiece;
 pub mod kernel;
 mod loader;
 pub mod tokenize;

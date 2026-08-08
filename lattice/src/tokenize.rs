@@ -1,51 +1,38 @@
-//! Thin wrapper over the HF `tokenizers` crate.
-//!
-//! We use the HF crate as-is for now — it's correct on all Unicode inputs,
-//! and replacing it with a custom WordPiece is a non-trivial undertaking
-//! (Unicode normalization, accent stripping, CJK handling) that's been
-//! punted to a follow-up research milestone. The single `encode` path is
-//! what training and eval use, so output token IDs match exactly.
+//! IDs-only WordPiece tokenizer for lattice-retrieval's BertNormalizer +
+//! BertPreTokenizer + WordPiece pipeline. See [`fast_wordpiece`] for why the
+//! HF `tokenizers` crate isn't a runtime dependency at all — it's kept as a
+//! dev-dependency purely for the parity test.
 
 use std::path::Path;
 
-use anyhow::{Context, Result, anyhow};
-use tokenizers::Tokenizer;
+use anyhow::Result;
+use rayon::prelude::*;
+
+use crate::fast_wordpiece::FastWordPiece;
 
 pub struct LatticeTokenizer {
-    inner: Tokenizer,
+    fast: FastWordPiece,
 }
 
 impl LatticeTokenizer {
     pub fn load(path: &Path) -> Result<Self> {
-        let inner = Tokenizer::from_file(path)
-            .map_err(|e| anyhow!("{}", e))
-            .with_context(|| format!("loading tokenizer from {}", path.display()))?;
-        Ok(Self { inner })
+        Ok(Self { fast: FastWordPiece::load(path)? })
     }
 
     /// Encode one document. **Special tokens (`[CLS]`/`[SEP]`) are NOT
     /// added** — this matches what `sentence-transformers`'
     /// `StaticEmbedding` feeds the `EmbeddingBag`. Verified by the parity
-    /// test against ST. (The tokenizer.json's TemplateProcessing
-    /// post-processor still defines them; we just bypass it via
-    /// `add_special_tokens=false`.)
+    /// test against ST.
     pub fn encode(&self, text: &str) -> Result<Vec<u32>> {
-        let enc = self
-            .inner
-            .encode(text, false)
-            .map_err(|e| anyhow!("tokenizer encode: {}", e))?;
-        Ok(enc.get_ids().to_vec())
+        Ok(self.fast.encode_ids(text))
     }
 
-    /// Encode a batch. The HF tokenizer parallelizes internally via rayon,
-    /// so call this from a sequential context — calling it from within
-    /// another rayon scope would nest two parallel iterations.
+    /// Encode a batch, parallelized across texts with rayon (`FastWordPiece`
+    /// is single-threaded per call). Call from a sequential context —
+    /// calling from within another rayon scope would nest two parallel
+    /// iterations.
     pub fn encode_batch(&self, texts: Vec<String>) -> Result<Vec<Vec<u32>>> {
-        let encs = self
-            .inner
-            .encode_batch(texts, false)
-            .map_err(|e| anyhow!("tokenizer encode_batch: {}", e))?;
-        Ok(encs.iter().map(|e| e.get_ids().to_vec()).collect())
+        Ok(texts.par_iter().map(|t| self.fast.encode_ids(t)).collect())
     }
 }
 
