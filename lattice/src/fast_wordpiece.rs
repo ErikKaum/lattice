@@ -10,8 +10,9 @@
 //! native `onig` dependency) isn't needed at runtime at all. It's kept as a
 //! dev-dependency purely to check parity in tests.
 //!
-//! Ported from model2vec-rs's `fast_wordpiece` module (itself a port of
-//! go-potion's WordPiece tokenizer).
+//! Literal added-token text (e.g. `[MASK]`, `[CLS]`) is matched and resolved
+//! to its id before normalization, matching the crate's `AddedVocabulary`
+//! step — see [`FastWordPiece::split_added_tokens`].
 
 use std::collections::HashMap;
 use std::fs;
@@ -36,6 +37,31 @@ pub(crate) struct FastWordPiece {
     handle_chinese_chars: bool,
     strip_accents: bool,
     lowercase: bool,
+    /// `normalized: false` entries from `added_tokens`, longest-content-first.
+    /// The crate's `AddedVocabulary::extract_and_normalize` matches these as
+    /// literal substrings of the raw text *before* the normalizer/pre-tokenizer
+    /// run, regardless of `add_special_tokens` (that flag only gates the
+    /// post-processor's CLS/SEP insertion, not this literal-match step) — so a
+    /// literal `[MASK]` mid-sentence must resolve to its added-token id here
+    /// too, not fall through to WordPiece on the lowercased text. Only
+    /// `normalized: false` entries are handled; lattice-retrieval's
+    /// tokenizer.json has none with `normalized: true` (that would need
+    /// matching against normalized text instead — unimplemented, unneeded).
+    added_tokens: Vec<(String, u32)>,
+    /// First byte of every entry in `added_tokens`, so `split_added_tokens`
+    /// can skip the `starts_with` scan at byte positions that can't possibly
+    /// start a match — added tokens are rare (typically absent) in bulk
+    /// embedding text, so this keeps the common case a single array lookup
+    /// per byte instead of up to `added_tokens.len()` string comparisons.
+    added_token_first_bytes: [bool; 256],
+}
+
+/// A slice of input text as it flows through [`FastWordPiece::split_added_tokens`]:
+/// either a literal added-token match (already resolved to its id) or a span
+/// of ordinary text still needing normalization/pre-tokenization/WordPiece.
+enum Piece<'a> {
+    Added(u32),
+    Text(&'a str),
 }
 
 impl FastWordPiece {
@@ -61,7 +87,10 @@ impl FastWordPiece {
         if model.get("type").and_then(|t| t.as_str()) != Some("WordPiece") {
             bail!("model.type is not \"WordPiece\"");
         }
-        if json.get("pre_tokenizer").and_then(|p| p.get("type")).and_then(|t| t.as_str())
+        if json
+            .get("pre_tokenizer")
+            .and_then(|p| p.get("type"))
+            .and_then(|t| t.as_str())
             != Some("BertPreTokenizer")
         {
             bail!("pre_tokenizer.type is not \"BertPreTokenizer\"");
@@ -70,13 +99,23 @@ impl FastWordPiece {
         if norm.get("type").and_then(|t| t.as_str()) != Some("BertNormalizer") {
             bail!("normalizer.type is not \"BertNormalizer\"");
         }
-        let lowercase = norm.get("lowercase").and_then(|v| v.as_bool()).unwrap_or(true);
-        let clean_text = norm.get("clean_text").and_then(|v| v.as_bool()).unwrap_or(true);
-        let handle_chinese_chars =
-            norm.get("handle_chinese_chars").and_then(|v| v.as_bool()).unwrap_or(true);
+        let lowercase = norm
+            .get("lowercase")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
+        let clean_text = norm
+            .get("clean_text")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
+        let handle_chinese_chars = norm
+            .get("handle_chinese_chars")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
         // `strip_accents: null` follows the lowercase setting, matching HuggingFace.
-        let strip_accents =
-            norm.get("strip_accents").and_then(|v| v.as_bool()).unwrap_or(lowercase);
+        let strip_accents = norm
+            .get("strip_accents")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(lowercase);
 
         // model.vocab is the flat token -> id map; for lattice-retrieval's
         // tokenizer.json every added special token (PAD/UNK/CLS/SEP/MASK) is
@@ -84,7 +123,10 @@ impl FastWordPiece {
         let vocab: HashMap<String, u32> =
             serde_json::from_value(model.get("vocab").context("missing model.vocab")?.clone())
                 .context("model.vocab is not a string -> id map")?;
-        let unk_token = model.get("unk_token").and_then(|v| v.as_str()).unwrap_or("[UNK]");
+        let unk_token = model
+            .get("unk_token")
+            .and_then(|v| v.as_str())
+            .unwrap_or("[UNK]");
         let unk_id = vocab.get(unk_token).copied();
         let continuing_subword_prefix = model
             .get("continuing_subword_prefix")
@@ -103,6 +145,30 @@ impl FastWordPiece {
             }
         }
 
+        let mut added_tokens: Vec<(String, u32)> = Vec::new();
+        for t in json.get("added_tokens").and_then(|v| v.as_array()).into_iter().flatten() {
+            let content = t.get("content").and_then(|c| c.as_str()).context("added_tokens entry missing content")?;
+            if content.is_empty() {
+                bail!("added_tokens entry has empty content");
+            }
+            let id = t.get("id").and_then(|v| v.as_u64()).context("added_tokens entry missing id")? as u32;
+            let normalized = t.get("normalized").and_then(|v| v.as_bool()).unwrap_or(true);
+            if normalized {
+                bail!(
+                    "added token {content:?} has normalized: true, which FastWordPiece doesn't implement (only normalized: false literal matching is supported)"
+                );
+            }
+            added_tokens.push((content.to_string(), id));
+        }
+        // Longest-content-first so a shorter added token can't shadow a longer
+        // one that starts with the same prefix.
+        added_tokens.sort_by_key(|(content, _)| std::cmp::Reverse(content.len()));
+
+        let mut added_token_first_bytes = [false; 256];
+        for (content, _) in &added_tokens {
+            added_token_first_bytes[content.as_bytes()[0] as usize] = true;
+        }
+
         Ok(FastWordPiece {
             vocab,
             single_byte,
@@ -113,19 +179,60 @@ impl FastWordPiece {
             handle_chinese_chars,
             strip_accents,
             lowercase,
+            added_tokens,
+            added_token_first_bytes,
         })
     }
 
     /// Encode text into token IDs, matching `encode_batch_fast(...).get_ids()`
     /// (unknown words emit the unk id, which the caller filters out).
     pub(crate) fn encode_ids(&self, text: &str) -> Vec<u32> {
-        let normalized = self.normalize(text);
         let mut out = Vec::new();
         let mut scratch = String::new();
-        for word in pre_tokenize(&normalized) {
-            self.word_to_ids(word, &mut out, &mut scratch);
+        for piece in self.split_added_tokens(text) {
+            match piece {
+                Piece::Added(id) => out.push(id),
+                Piece::Text(t) => {
+                    let normalized = self.normalize(t);
+                    for word in pre_tokenize(&normalized) {
+                        self.word_to_ids(word, &mut out, &mut scratch);
+                    }
+                }
+            }
         }
         out
+    }
+
+    /// Split `text` on literal, case-sensitive matches of `added_tokens`
+    /// (greedy longest-match-first, left to right), leaving everything else
+    /// as `Text` pieces for the normal normalize/pre-tokenize/WordPiece path.
+    fn split_added_tokens<'a>(&self, text: &'a str) -> Vec<Piece<'a>> {
+        if self.added_tokens.is_empty() {
+            return vec![Piece::Text(text)];
+        }
+        let bytes = text.as_bytes();
+        let mut pieces = Vec::new();
+        let mut start = 0;
+        let mut i = 0;
+        while i < text.len() {
+            let hit = self.added_token_first_bytes[bytes[i] as usize]
+                .then(|| self.added_tokens.iter().find(|(tok, _)| text[i..].starts_with(tok.as_str())))
+                .flatten();
+            if let Some((tok, id)) = hit {
+                if start < i {
+                    pieces.push(Piece::Text(&text[start..i]));
+                }
+                pieces.push(Piece::Added(*id));
+                i += tok.len();
+                start = i;
+            } else {
+                i += text[i..].chars().next().expect("i < text.len()").len_utf8();
+            }
+        }
+        if start < text.len() {
+            pieces.push(Piece::Text(&text[start..]));
+        }
+        pieces
     }
 
     // --- WordPiece ---------------------------------------------------------
@@ -281,7 +388,9 @@ impl FastWordPiece {
             staged
         };
 
-        processed.trim_matches(|c: char| c.is_whitespace()).to_string()
+        processed
+            .trim_matches(|c: char| c.is_whitespace())
+            .to_string()
     }
 }
 
@@ -382,6 +491,7 @@ mod tests {
 
     fn corpus() -> Vec<&'static str> {
         vec![
+            // --- existing ---
             "Hello, world!",
             "The QUICK brown fox jumps.",
             "café résumé naïve fiancé",
@@ -394,6 +504,69 @@ mod tests {
             "",
             "   ",
             "MiXeD CaSe WoRdS 42",
+
+            // --- clean_text: control/format chars removed, whitespace→space ---
+            "a\u{0007}b\u{0000}c",          // bell + NUL removed
+            "a\u{000b}b\u{000c}c",          // vertical tab / form feed (Cc → removed, NOT spaced)
+            "a\u{007f}b",                   // DEL removed
+            "a\u{200b}b\u{feff}c",          // zero-width space + BOM (Cf → removed)
+            "a\u{00a0}b\u{2009}c",          // NBSP + thin space (Zs → become space → split)
+            "a\u{fffd}b",                   // replacement char removed
+            "\u{0001}\u{0002}\u{0003}",     // all-control → empty after normalize
+            "  leading and trailing  ",     // edge whitespace trim
+            "\t\n\r",                       // whitespace/control only
+
+            // --- casing that changes length or is context-sensitive ---
+            "İstanbul",                     // U+0130: NFD→I+dot, strip dot, lower→i
+            "STRASSE straße GROSS",         // eszett upper/lower asymmetry
+            "ﬁle ﬀ ﬄ",                      // ligatures (fi, ff, ffl)
+            "ΟΔΟΣ Σίσυφος",                 // Greek final-sigma: verify char-level (no context)
+            "ＦＵＬＬＷＩＤＴＨ ａｂｃ",          // fullwidth latin casing
+
+            // --- accents / combining marks, both compositions ---
+            "e\u{0301} a\u{0300} n\u{0303}",   // pre-decomposed base+combining
+            "é à ñ ü ç",                       // precomposed (NFD path)
+            "Å Ω µ",                           // chars with compatibility/canonical quirks
+            "क्षत्रि",                        // Devanagari combining (non-Latin marks)
+
+            // --- CJK / handle_chinese_chars boundaries and non-CJK scripts ---
+            "一鿿㐀䶿",                       // BMP CJK range endpoints
+            "𠀀 𪛖 豈",                       // ext-B (U+20000) + compatibility (U+F900)
+            "你好world世界",                  // CJK adjacent to latin, no spaces
+            "，。、！？；：",                  // fullwidth/CJK punctuation (category Po → isolate)
+            "こんにちは カタカナ 안녕하세요",   // kana + hangul: must NOT be space-wrapped
+
+            // --- punctuation isolation: ASCII vs Unicode P vs Unicode symbol ---
+            "a≤b x→y n≠m",                  // Sm math symbols: NOT punctuation → stay in word
+            "«guillemets» \u{201c}smart\u{201d} \u{2018}quotes\u{2019}", // Pi/Pf → isolate
+            "em—dash en–dash …ellipsis",     // Pd + Po
+            "e.g., i.e. U.S.A. 3.14 1,000",  // dotted abbreviations / decimals
+            "!!!??? ((())) [a]{b}",          // punctuation runs / adjacency
+            "$100 €50 £20 ¥30 ₹40 ₿1",       // currency symbols (Sc)
+
+            // --- emoji / symbols / combining sequences ---
+            "hello 👋 world 🌍",
+            "family 👨‍👩‍👧 ZWJ",             // ZWJ sequence (ZWJ is Cf → removed)
+            "🇺🇸 🇯🇵 flags",                  // regional indicators
+            "thumbs 👍🏽 skintone",           // emoji + skin-tone modifier
+
+            // --- WordPiece internals: subwords, unk, max_input_chars ---
+            "internationalization preprocessing tokenization playing",  // multi-## splits
+            "ᚠᚢᚦ 𐐀𐐁 zzqxjk",               // runic/deseret/rare → unk path
+            "🎉party mixed🔥emoji",           // unk char glued to word
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",     // 100 chars: at boundary
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",    // 101 chars: exceeds → unk
+            "字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字",  // long multibyte: byte-len ≫ char-len (exercises the byte shortcut)
+
+            // --- literal special/added tokens ---
+            "hello [MASK] world",
+            "hello [mask] world",
+            "[CLS] hi [SEP]",
+            "[PAD][UNK][MASK]",
+            "no special tokens here",
+            "[MASK] [CLS] [SEP] [PAD] [UNK]",
+            "foo[SEP]bar text[MASK]here",
+            "[unk] lowercase specials",     // normalized-form collision check
         ]
     }
 
